@@ -36,10 +36,11 @@ The system has no inbound public endpoint and no request-per-second serving load
 - **R-DELIVERY-1:** a failed Telegram write is not marked seen and is retried at most three times with the PRD's five-second backoff.
 - **R-BOOTSTRAP-1:** the safe default baselines each source on its first successful read; historical notifications require explicit `--notify-existing` intent.
 - **R-SCHEDULE-1:** one polling cycle may run at a time; source failures are isolated and do not cancel successful sources.
+- **R-RUNTIME-1:** production runs the repository's virtualenv through a version-controlled systemd unit, loads the explicit project environment file without overriding service-provided values, and restarts after failure.
 
 ## Architecture
 
-Python 3.11+ modular monolith running as one background worker. APScheduler triggers the orchestrator. Stateless source modules perform bounded reads in parallel. The orchestrator serialises delivery decisions through SQLite. Telegram and X use their HTTP APIs directly because only one endpoint from each API is needed; this avoids heavyweight wrappers and keeps retry/timeout behaviour explicit. See `docs/adr/0001-python-worker-and-direct-http.md`.
+Python 3.11+ modular monolith running as one systemd-managed background worker. APScheduler triggers the orchestrator. Stateless source modules perform bounded reads in parallel. The orchestrator serialises delivery decisions through SQLite. Telegram and X use their HTTP APIs directly because only one endpoint from each API is needed; this avoids heavyweight wrappers and keeps retry/timeout behaviour explicit. See `docs/adr/0001-python-worker-and-direct-http.md` and `docs/adr/0002-vps-systemd-runtime.md`.
 
 ## Known limits
 

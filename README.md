@@ -48,15 +48,9 @@ python3 -m venv .venv
 cp .env.example .env
 ```
 
-Edit `.env`, then export it into the current shell (the application does not auto-load dotenv files):
-
-```bash
-set -a
-. ./.env
-set +a
-```
-
-Alternatively, export only the required values or set them in your host:
+Edit `.env`. The application loads this project file automatically with `python-dotenv`;
+values already provided by the process or service environment take precedence. Alternatively,
+export the required values directly:
 
 ```bash
 export TELEGRAM_BOT_TOKEN="replace-me"
@@ -76,6 +70,19 @@ Start the scheduled worker:
 ```bash
 .venv/bin/python main.py
 ```
+
+For this VPS, install the version-controlled systemd unit:
+
+```bash
+sudo install -o root -g root -m 0644 deploy/hackathon-radar.service /etc/systemd/system/hackathon-radar.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now hackathon-radar
+sudo systemctl status hackathon-radar
+```
+
+The unit runs `/home/ubuntu/my-bot/.venv/bin/python`, loads `/home/ubuntu/my-bot/.env`,
+and restarts after failures. `deploy/hackathon-radar.logrotate` and
+`deploy/hackathon-radar.cron` hold the host hardening templates used by this deployment.
 
 On the first successful read of each source, the default `BOOTSTRAP_MODE=baseline` archives current listings without sending them. This prevents a new deployment from flooding Telegram. To deliberately send all currently returned listings once:
 

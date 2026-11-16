@@ -58,3 +58,16 @@ The faults below were temporarily injected into production code, observed by the
 - RED command: selected safeguard suite.
 - RED excerpt: `job.max_instances == 2`, expected `1`.
 - GREEN excerpt after restoration: selected safeguard suite reported `7 passed`.
+
+## R-RUNTIME-1 — project dotenv and systemd virtualenv
+
+- Tests: `test_settings_loads_project_dotenv_without_overriding_environment` and
+  `test_systemd_unit_uses_project_virtualenv_and_environment_file`.
+- Faults: omitted the project dotenv load and omitted the version-controlled production unit.
+- RED command: `.venv/bin/python -m pytest -q tests/test_config.py tests/test_deployment.py`.
+- RED excerpts: `assert [] == [(expected_path, False)]` and
+  `AssertionError: production systemd unit file is missing`.
+- GREEN command: `.venv/bin/python -m pytest -q tests/test_config.py tests/test_deployment.py`.
+- GREEN excerpt after implementation: `2 passed`.
+- Full-suite GREEN command: `.venv/bin/python -m pytest`.
+- Full-suite GREEN excerpt: `30 passed in 0.60s`.

@@ -4,6 +4,11 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+PROJECT_ROOT = Path(__file__).resolve().parent
+ENV_FILE = PROJECT_ROOT / ".env"
+
 DEFAULT_TWITTER_QUERIES = (
     '(hackathon OR buildathon) ("apply now" OR registration OR open) -is:retweet lang:en',
     '("web3 hackathon" OR "blockchain hackathon") (open OR register) -is:retweet lang:en',
@@ -35,6 +40,7 @@ class Settings:
 
     @classmethod
     def from_env(cls) -> Settings:
+        load_dotenv(ENV_FILE, override=False)
         queries = _split_queries(os.getenv("TWITTER_QUERIES", ""))
         bootstrap_mode = os.getenv("BOOTSTRAP_MODE", "baseline").strip().lower()
         if bootstrap_mode not in {"baseline", "notify"}:

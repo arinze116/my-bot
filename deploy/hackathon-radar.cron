@@ -1,0 +1,1 @@
+*/5 * * * * systemctl is-active --quiet hackathon-radar || sudo systemctl restart hackathon-radar

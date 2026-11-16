@@ -35,3 +35,12 @@
 - **Fails how:** retryable network/429/5xx failures receive up to three attempts; permanent 4xx responses fail immediately.
 - **Hard part:** Markdown escaping and the send/commit crash window.
 - **Red tests:** `test_send_retries_three_times_then_stops` -> R-DELIVERY-1; `test_failure_logs_do_not_expose_token` -> R-SECRET-1.
+
+## runtime deployment
+
+- **Owns:** `.venv`, `deploy/hackathon-radar.service`, logrotate/watchdog templates, process restart policy, and explicit `.env` loading for manual runs.
+- **Promises:** manual and systemd execution use the same dependency set; system environment values win over `.env`; production restarts after process failure (R-RUNTIME-1); credentials remain outside git (R-SECRET-1).
+- **Depends on:** Python 3.11+, systemd, a readable mode-600 `.env`, network availability, and the repository path remaining `/home/ubuntu/my-bot`.
+- **Fails how:** a missing virtualenv dependency fails before startup; systemd records the traceback and retries after ten seconds.
+- **Hard part:** preventing interpreter drift between shell smoke tests and the live service.
+- **Red tests:** `test_settings_loads_project_dotenv_without_overriding_environment` and `test_systemd_unit_uses_project_virtualenv_and_environment_file` -> R-RUNTIME-1/R-SECRET-1.
