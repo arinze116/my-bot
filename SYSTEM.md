@@ -33,7 +33,7 @@ The system has no inbound public endpoint and no request-per-second serving load
 - **R-TIMEOUT-1:** every outside call has a connect/read/write/pool timeout no greater than 20 seconds.
 - **R-SECRET-1:** credentials never enter source control or log messages; Telegram token-bearing URLs are never logged.
 - **R-DEDUP-1:** a successful notification is inserted with a unique SHA-1 id; a known id is never sent again.
-- **R-DELIVERY-1:** a failed Telegram write is not marked seen and is retried at most three times with the PRD's five-second backoff.
+- **R-DELIVERY-1:** a failed Telegram write is not marked seen and is retried at most three times with the PRD's five-second backoff; untrusted descriptions are escaped but never wrapped as a Markdown entity.
 - **R-BOOTSTRAP-1:** the safe default baselines each source on its first successful read; historical notifications require explicit `--notify-existing` intent.
 - **R-SCHEDULE-1:** one polling cycle may run at a time; source failures are isolated and do not cancel successful sources.
 - **R-RUNTIME-1:** production runs the repository's virtualenv through a version-controlled systemd unit, loads the explicit project environment file without overriding service-provided values, and restarts after failure.

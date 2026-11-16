@@ -98,7 +98,10 @@ On the first successful read of each source, the default `BOOTSTRAP_MODE=baselin
 4. Open `https://api.telegram.org/bot<TOKEN>/getUpdates` locally and copy your private chat's `message.chat.id`.
 5. Store that value as `TELEGRAM_CHAT_ID`.
 
-The worker sends one startup status message per process boot. New hackathons are sent individually. Retryable Telegram failures receive at most three attempts with a five-second delay.
+The worker sends one startup status message per process boot. New hackathons are sent individually.
+Labels and links use Markdown, while untrusted description bodies remain plain escaped text to avoid
+provider content breaking Telegram entity parsing. Retryable Telegram failures receive at most
+three attempts with a five-second delay.
 
 ## Configuration
 

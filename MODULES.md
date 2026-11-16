@@ -30,11 +30,11 @@
 ## Telegram delivery
 
 - **Owns:** Telegram message formatting and outbound `sendMessage` calls.
-- **Promises:** messages stay within Telegram's 4,096-character limit; credentials are not logged (R-SECRET-1); retry count is bounded (R-DELIVERY-1).
+- **Promises:** messages stay within Telegram's 4,096-character limit; untrusted descriptions cannot create an unterminated Markdown entity; credentials are not logged (R-SECRET-1); retry count is bounded (R-DELIVERY-1).
 - **Depends on:** Telegram Bot API; a valid bot token and private chat id.
 - **Fails how:** retryable network/429/5xx failures receive up to three attempts; permanent 4xx responses fail immediately.
 - **Hard part:** Markdown escaping and the send/commit crash window.
-- **Red tests:** `test_send_retries_three_times_then_stops` -> R-DELIVERY-1; `test_failure_logs_do_not_expose_token` -> R-SECRET-1.
+- **Red tests:** `test_send_retries_three_times_then_stops` and `test_format_message_does_not_wrap_untrusted_description_in_markdown_entity` -> R-DELIVERY-1; `test_failure_logs_do_not_expose_token` -> R-SECRET-1.
 
 ## runtime deployment
 

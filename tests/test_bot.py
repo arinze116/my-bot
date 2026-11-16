@@ -52,6 +52,20 @@ def test_format_message_preserves_link_under_adversarial_field_lengths() -> None
     assert "[Apply / View Hackathon](https://example.com/" in message
 
 
+def test_format_message_does_not_wrap_untrusted_description_in_markdown_entity() -> None:
+    hackathon = {
+        **HACKATHON,
+        "description": (
+            "@shipordie_ Day 1 of the $100K Hackathon. Research notes https://t.co/i41xJICRtL"
+        ),
+    }
+
+    message = format_message(hackathon)
+
+    assert "📝 _" not in message
+    assert "📝 @shipordie\\_ Day 1" in message
+
+
 def test_send_retries_three_times_then_stops(settings_factory) -> None:
     calls = 0
     sleeps: list[float] = []

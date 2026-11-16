@@ -5,3 +5,4 @@
 - Initial Hackathon Radar worker, source adapters, SQLite deduplication, Telegram delivery, tests, and deployment documentation.
 - Wire manual and systemd execution to the project virtualenv, load `.env` safely with python-dotenv, add the VPS production unit, and include logrotate/watchdog deployment templates.
 - Expand X discovery to eight rate-conscious keyword groups and filter requested retrospective, course, bootcamp, and hiring noise before delivery.
+- Prevent untrusted descriptions from creating invalid Telegram Markdown entities, and filter observed active-participant diary noise.

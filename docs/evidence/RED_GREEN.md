@@ -85,3 +85,18 @@ The faults below were temporarily injected into production code, observed by the
 - GREEN excerpt: `2 passed`.
 - Full-suite GREEN command: `make ci`.
 - Full-suite GREEN excerpt: Ruff `All checks passed!`; pytest `32 passed in 0.62s`.
+
+## R-DELIVERY-1 — untrusted Telegram description formatting
+
+- Test: `test_format_message_does_not_wrap_untrusted_description_in_markdown_entity`.
+- Fault: wrapped an untrusted X description in `_..._`, allowing escaped handles and a trailing URL
+  to produce an unterminated legacy Markdown entity.
+- RED command: `.venv/bin/python -m pytest -q tests/test_bot.py::test_format_message_does_not_wrap_untrusted_description_in_markdown_entity`.
+- RED excerpt: `assert "📝 _" not in message` failed because the generated line began
+  `📝 _@shipordie\\_`.
+- GREEN command: the same one-test command after keeping the escaped description plain.
+- GREEN excerpt: `1 passed`.
+- Live GREEN: the previously problematic description shape returned
+  `Problematic-description delivery confirmed: True` from Telegram.
+- Full-suite GREEN command: `make ci`.
+- Full-suite GREEN excerpt: Ruff `All checks passed!`; pytest `33 passed in 0.63s`.

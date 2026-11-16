@@ -250,6 +250,7 @@ def test_twitter_fetch_filters_requested_noise() -> None:
                     {"id": "4", "text": "New course about a hackathon"},
                     {"id": "5", "text": "Bootcamp hackathon lesson"},
                     {"id": "6", "text": "Hiring ex-hackathon participants"},
+                    {"id": "7", "text": "Day 1 of the $100K Hackathon, spent 5 hours building"},
                 ]
             }
 

@@ -16,6 +16,8 @@ query would let high-volume recap and winner posts consume the 100-result respon
 Use eight Boolean query groups, each no longer than 512 characters and each excluding retweets and
 non-English posts. Group related terms so one poll uses eight X calls. Reject the owner's explicit
 noise phrases and term pairs locally before normalization, deduplication, or Telegram delivery.
+An observed active-participant "Day 1" diary pattern is also rejected because it is not a new
+registration opportunity.
 Keep `TWITTER_QUERIES` as a complete custom override; an empty value selects the built-ins.
 
 ## Alternatives considered

@@ -21,6 +21,7 @@ NOISE_TERM_PAIRS = (
     ("hiring", "ex-hackathon"),
     ("course", "hackathon"),
     ("bootcamp", "hackathon"),
+    ("day 1", "hackathon"),
 )
 
 

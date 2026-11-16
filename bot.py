@@ -34,7 +34,7 @@ def _build_message(
     lines = ["🏆 *NEW HACKATHON DETECTED*", ""]
     lines.extend(_detail_lines(hackathon, detail_limit))
     if description:
-        lines.extend(["", f"📝 _{description}_"])
+        lines.extend(["", f"📝 {description}"])
     url = _escape_link_url(str(hackathon["url"]))
     lines.extend(["", f"🔗 [Apply / View Hackathon]({url})"])
     if tags:
