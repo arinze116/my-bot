@@ -22,16 +22,20 @@ Make the supplied single-user Hackathon Radar Telegram bot production-ready on t
 - Explicit project `.env` loading with process-environment precedence; the real file remains ignored and mode `600`.
 - Version-controlled VPS systemd unit with working directory, environment file, virtualenv interpreter, boot enablement, and ten-second restart policy.
 - Daily logrotate template, `SystemMaxUse=200M` journald cap, and five-minute watchdog cron.
+- Eight bounded X discovery groups covering the owner-supplied event, call-to-action, ecosystem,
+  regional, niche, and platform terms, with local filtering for the requested noise patterns.
 
 ## Tested
 
 | Command | Status | Current-revision evidence |
 |---|---|---|
-| `make ci` | passed | Ruff: `All checks passed!`; pytest: `30 passed in 0.59s` |
+| `make ci` | passed | Ruff: `All checks passed!`; pytest: `32 passed in 0.62s` |
 | `.venv/bin/python main.py --run-once` | passed | exit `0`; fetched 209; zero source errors; all eight source states initialized |
 | `.venv/bin/python -m scripts.check_sources` | passed | Devpost 18; Devfolio 20; DoraHacks 13; MLH 24; Lablab 0; HackerEarth 3; Gitcoin 0; X 132; every adapter reported `PASS` |
 | Telegram delivery probe through `TelegramClient` | passed | `Telegram delivery confirmed: True`; one explicit deployment smoke message confirmed |
 | X recent search | passed | 131 X/Twitter records returned and baselined by the smoke cycle |
+| expanded X discovery | passed | all 8 default query groups accepted by X; 625 unique results after noise filtering |
+| expanded-query rollout baseline | passed | 625 X results fetched; 590 newly archived without delivery to prevent a historical alert flood |
 | 60-second systemd stability check | passed | active/running; PID `2193331`; `NRestarts=0`; uptime `1min 5s` |
 | first scheduled systemd poll | passed | fetched 209; skipped 209; source errors 0; APScheduler logged `executed successfully` |
 | two-minute journal follow | passed | no warning, error, crash, or restart appeared |
@@ -52,6 +56,7 @@ Make the supplied single-user Hackathon Radar Telegram bot production-ready on t
 - R-DEDUP-1 duplicate suppression.
 - R-SCHEDULE-1 one polling cycle at a time.
 - R-RUNTIME-1 dotenv loading and virtualenv-backed systemd execution.
+- R-DISCOVERY-1 requested X keyword coverage, bounded query groups, and noise rejection.
 
 ## Passed
 
@@ -80,7 +85,7 @@ Make the supplied single-user Hackathon Radar Telegram bot production-ready on t
 
 | Criterion | Evidence |
 |---|---|
-| Engineering | `make ci`; 30 tests; RED/GREEN evidence; `SYSTEM.md`; `MODULES.md`; ADR; live source smoke; confirmed Telegram delivery; active systemd service. |
+| Engineering | `make ci`; 32 tests; RED/GREEN evidence; `SYSTEM.md`; `MODULES.md`; ADRs; live source smoke; confirmed Telegram delivery; active systemd service. |
 | Design | Not applicable: no visual interface was requested or created. Telegram text formatting is covered by length and Markdown tests. |
 | Branding | The owner-supplied Hackathon Radar name and alert voice are used consistently; no separate brand system was requested or evaluated. |
 | Video | Not applicable: no video artefact was requested. |

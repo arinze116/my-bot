@@ -3,11 +3,11 @@
 ## source adapters
 
 - **Owns:** no persistent state; one provider contract per `scrapers/<source>.py`.
-- **Promises:** `fetch() -> list[dict]`; required `title`, `url`, and `platform` values are non-empty; outside calls obey R-TIMEOUT-1; remote fields are treated as untrusted.
+- **Promises:** `fetch() -> list[dict]`; required `title`, `url`, and `platform` values are non-empty; outside calls obey R-TIMEOUT-1; remote fields are treated as untrusted; X queries and noise rejection obey R-DISCOVERY-1.
 - **Depends on:** public provider pages/APIs, whose availability and schemas have no common SLA.
 - **Fails how:** raises a source-scoped exception; the orchestrator logs it and continues other sources.
 - **Hard part:** detecting provider contract drift without creating false alerts.
-- **Red tests:** `test_http_client_uses_bounded_timeouts` -> R-TIMEOUT-1; parser fixture tests -> source contracts.
+- **Red tests:** `test_http_client_uses_bounded_timeouts` -> R-TIMEOUT-1; `test_default_twitter_queries_cover_requested_discovery_terms` and `test_twitter_fetch_filters_requested_noise` -> R-DISCOVERY-1; parser fixture tests -> source contracts.
 
 ## aggregator
 

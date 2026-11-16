@@ -11,6 +11,17 @@ from scrapers.common import make_client
 
 API_URL = "https://api.x.com/2/tweets/search/recent"
 PLATFORM = "X/Twitter"
+NOISE_PHRASES = (
+    "won the hackathon",
+    "we won",
+    "our submission",
+    "demo day recap",
+)
+NOISE_TERM_PAIRS = (
+    ("hiring", "ex-hackathon"),
+    ("course", "hackathon"),
+    ("bootcamp", "hackathon"),
+)
 
 
 def fetch() -> list[dict]:
@@ -35,6 +46,8 @@ def _fetch_queries(
         )
         response.raise_for_status()
         for item in response.json().get("data", []):
+            if _is_noise(str(item.get("text") or "")):
+                continue
             results[str(item.get("id"))] = parse_item(item)
     return list(results.values())
 
@@ -59,3 +72,10 @@ def parse_item(item: dict[str, Any]) -> Hackathon:
 def _queries(raw: str) -> tuple[str, ...]:
     parsed = tuple(value.strip() for value in raw.split("||") if value.strip())
     return parsed or DEFAULT_TWITTER_QUERIES
+
+
+def _is_noise(text: str) -> bool:
+    normalized = " ".join(text.lower().replace("’", "'").split())
+    if any(phrase in normalized for phrase in NOISE_PHRASES):
+        return True
+    return any(all(term in normalized for term in pair) for pair in NOISE_TERM_PAIRS)

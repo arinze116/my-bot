@@ -10,9 +10,51 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 ENV_FILE = PROJECT_ROOT / ".env"
 
 DEFAULT_TWITTER_QUERIES = (
-    '(hackathon OR buildathon) ("apply now" OR registration OR open) -is:retweet lang:en',
-    '("web3 hackathon" OR "blockchain hackathon") (open OR register) -is:retweet lang:en',
-    '("AI hackathon" OR "ML hackathon") (open OR apply) -is:retweet lang:en',
+    (
+        '(hackathon OR "hackathon 2026" OR "online hackathon" OR "virtual hackathon" '
+        'OR buildathon OR codeathon OR "bounty hack" OR "prize pool hackathon" '
+        'OR ("$" hackathon)) -is:retweet lang:en'
+    ),
+    (
+        '(("register now" OR "applications open" OR "submit by" OR '
+        '"join our hackathon" OR "we\'re hosting a hackathon" OR '
+        '"open for registration") (hackathon OR buildathon)) -is:retweet lang:en'
+    ),
+    (
+        '("hackathon kicks off" OR "hackathon starts" OR "hackathon weekend" '
+        'OR "48-hour hack" OR "24-hour hackathon" OR "week-long hackathon" '
+        'OR "builders wanted" OR "call for builders") -is:retweet lang:en'
+    ),
+    (
+        '("Solana hackathon" OR ETHGlobal OR "Base hackathon" OR '
+        '"Optimism hackathon" OR "Arbitrum hackathon" OR "Polygon hackathon" '
+        'OR "Sui hackathon" OR "Aptos hackathon" OR "Near hackathon" '
+        'OR "Cosmos hackathon") -is:retweet lang:en'
+    ),
+    (
+        '("Starknet hackathon" OR "zkSync hackathon" OR "Scroll hackathon" '
+        'OR "Celestia hackathon" OR "Filecoin hackathon" OR "Protocol Labs" '
+        'OR "Devcon hack" OR ETHDenver OR ETHIndia OR ETHRome) '
+        "(hackathon OR buildathon OR builders OR apply OR register) -is:retweet lang:en"
+    ),
+    (
+        '("Africa hackathon" OR "Lagos hackathon" OR "Nigeria hackathon" '
+        'OR "Kenya hackathon" OR "Ghana hackathon" OR "LATAM hackathon" '
+        'OR "India hackathon" OR "SEA hackathon" OR "EU hackathon" '
+        'OR "university hackathon" OR "campus hackathon" OR "student hackathon") '
+        "-is:retweet lang:en"
+    ),
+    (
+        '("climate hackathon" OR "healthtech hackathon" OR "fintech hackathon" '
+        'OR "AI hackathon" OR "robotics hackathon" OR "open source hackathon") '
+        "-is:retweet lang:en"
+    ),
+    (
+        '(("encode club" OR dorahacks OR questbook OR gitcoin OR superteam '
+        'OR ("builders grant" hack) OR "luma.com" OR "lu.ma" OR devfolio '
+        'OR taikai OR mlh OR hackclub OR eventbrite OR "apply:") '
+        "(hackathon OR buildathon OR bounty OR builders OR grant)) -is:retweet lang:en"
+    ),
 )
 
 

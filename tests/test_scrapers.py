@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 
+from config import DEFAULT_TWITTER_QUERIES
 from scrapers import devfolio, devpost, dorahacks, gitcoin, hackerearth, lablab, mlh, twitter
 
 
@@ -153,3 +154,109 @@ def test_twitter_item_uses_first_expanded_url() -> None:
 
     assert item["url"] == "https://example.com/apply"
     assert item["tech_tags"] == "AI"
+
+
+def test_default_twitter_queries_cover_requested_discovery_terms() -> None:
+    joined = "\n".join(DEFAULT_TWITTER_QUERIES).lower()
+    required_terms = {
+        '"$"',
+        '"24-hour hackathon"',
+        '"48-hour hack"',
+        '"africa hackathon"',
+        '"ai hackathon"',
+        '"applications open"',
+        '"builders grant"',
+        '"builders wanted"',
+        '"call for builders"',
+        '"campus hackathon"',
+        '"climate hackathon"',
+        '"join our hackathon"',
+        '"lagos hackathon"',
+        '"online hackathon"',
+        '"open for registration"',
+        '"open source hackathon"',
+        '"prize pool hackathon"',
+        '"register now"',
+        '"student hackathon"',
+        '"submit by"',
+        '"university hackathon"',
+        '"virtual hackathon"',
+        '"we\'re hosting a hackathon"',
+        '"week-long hackathon"',
+        "aptos hackathon",
+        "arbitrum hackathon",
+        "base hackathon",
+        "bounty hack",
+        "buildathon",
+        "celestia hackathon",
+        "codeathon",
+        "cosmos hackathon",
+        "dorahacks",
+        "encode club",
+        "ethdenver",
+        "ethglobal",
+        "ethindia",
+        "ethrome",
+        "eventbrite",
+        "filecoin hackathon",
+        "fintech hackathon",
+        "ghana hackathon",
+        "gitcoin",
+        "hackathon 2026",
+        "hackathon kicks off",
+        "hackathon starts",
+        "hackathon weekend",
+        "hackclub",
+        "healthtech hackathon",
+        "india hackathon",
+        "kenya hackathon",
+        "latam hackathon",
+        "luma.com",
+        "lu.ma",
+        "mlh",
+        "near hackathon",
+        "nigeria hackathon",
+        "optimism hackathon",
+        "polygon hackathon",
+        "protocol labs",
+        "questbook",
+        "robotics hackathon",
+        "scroll hackathon",
+        "sea hackathon",
+        "solana hackathon",
+        "starknet hackathon",
+        "sui hackathon",
+        "superteam",
+        "taikai",
+        "zksync hackathon",
+    }
+
+    assert required_terms <= {term for term in required_terms if term in joined}
+    assert len(DEFAULT_TWITTER_QUERIES) == 8
+    assert max(map(len, DEFAULT_TWITTER_QUERIES)) <= 512
+
+
+def test_twitter_fetch_filters_requested_noise() -> None:
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return {
+                "data": [
+                    {"id": "1", "text": "Applications open for our Lagos hackathon"},
+                    {"id": "2", "text": "We won the hackathon!"},
+                    {"id": "3", "text": "Our submission and demo day recap"},
+                    {"id": "4", "text": "New course about a hackathon"},
+                    {"id": "5", "text": "Bootcamp hackathon lesson"},
+                    {"id": "6", "text": "Hiring ex-hackathon participants"},
+                ]
+            }
+
+    class FakeClient:
+        def get(self, *args: object, **kwargs: object) -> FakeResponse:
+            return FakeResponse()
+
+    items = twitter._fetch_queries(FakeClient(), token="", queries=("hackathon",))
+
+    assert [item["title"] for item in items] == ["Applications open for our Lagos hackathon"]

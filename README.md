@@ -107,7 +107,7 @@ The worker sends one startup status message per process boot. New hackathons are
 | `TELEGRAM_BOT_TOKEN` | — | Required for real delivery. |
 | `TELEGRAM_CHAT_ID` | — | Required private destination chat. |
 | `TWITTER_BEARER_TOKEN` | empty | Enables X recent search when present. |
-| `TWITTER_QUERIES` | three built-in queries | Separate custom queries with `||`. |
+| `TWITTER_QUERIES` | eight built-in discovery groups | Leave empty for built-ins, or replace them with custom queries separated by `||`. |
 | `DATABASE_PATH` | `seen_hackathons.db` | SQLite path. Use a persistent mounted path in cloud hosting. |
 | `POLL_INTERVAL_MINUTES` | `20` | Scheduler interval. |
 | `BOOTSTRAP_MODE` | `baseline` | `baseline` archives current items; `notify` sends them. |
@@ -121,6 +121,9 @@ The worker sends one startup status message per process boot. New hackathons are
 | `MLH_SEASONS` | current,next | Optional comma-separated season years. |
 
 X is omitted from the active source list when its token is empty, even if `ENABLE_TWITTER=true`.
+The built-in groups cover core event language, registration calls, Web3 ecosystems,
+regional/student events, technical niches, and listing platforms. X posts describing wins,
+submissions, recaps, hackathon courses/bootcamps, or ex-hackathon hiring are filtered locally.
 
 ## Data and deduplication
 

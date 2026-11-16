@@ -71,3 +71,17 @@ The faults below were temporarily injected into production code, observed by the
 - GREEN excerpt after implementation: `2 passed`.
 - Full-suite GREEN command: `.venv/bin/python -m pytest`.
 - Full-suite GREEN excerpt: `30 passed in 0.60s`.
+
+## R-DISCOVERY-1 — X keyword coverage and noise rejection
+
+- Tests: `test_default_twitter_queries_cover_requested_discovery_terms` and
+  `test_twitter_fetch_filters_requested_noise`.
+- Faults: retained the old three-query set and passed every X result through without applying the
+  owner's noise exclusions.
+- RED command: `.venv/bin/python -m pytest -q tests/test_scrapers.py::test_default_twitter_queries_cover_requested_discovery_terms tests/test_scrapers.py::test_twitter_fetch_filters_requested_noise`.
+- RED excerpts: discovery coverage reported many `Extra items in the left set`; noise filtering
+  reported `Left contains 5 more items`.
+- GREEN command: the same two-test command after grouping terms and adding local rejection.
+- GREEN excerpt: `2 passed`.
+- Full-suite GREEN command: `make ci`.
+- Full-suite GREEN excerpt: Ruff `All checks passed!`; pytest `32 passed in 0.62s`.
