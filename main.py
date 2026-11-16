@@ -6,6 +6,7 @@ from dataclasses import replace
 
 from aggregator import RadarService
 from bot import ConsoleNotifier, TelegramClient
+from commands import TelegramCommandPoller
 from config import Settings
 from db import Database
 from scheduler import run_scheduler
@@ -28,6 +29,7 @@ def main() -> int:
     source_specs = enabled_sources(settings)
     notifier = ConsoleNotifier() if args.dry_run else TelegramClient(settings)
     service = RadarService(settings, database, notifier, source_specs, dry_run=args.dry_run)
+    command_poller: TelegramCommandPoller | None = None
 
     try:
         notifier.send_startup_message(
@@ -36,11 +38,20 @@ def main() -> int:
         if args.run_once:
             report = service.run_cycle()
             return 2 if report.delivery_failures else 0
+        if not args.dry_run:
+            command_poller = TelegramCommandPoller(
+                settings,
+                database,
+                [source.display_name for source in source_specs],
+            )
+            command_poller.start()
         LOGGER.info("Starting %s-minute scheduler", settings.poll_interval_minutes)
         run_scheduler(service, settings.poll_interval_minutes)
     except (KeyboardInterrupt, SystemExit):
         LOGGER.info("Hackathon Radar stopped")
     finally:
+        if command_poller:
+            command_poller.stop()
         notifier.close()
     return 0
 

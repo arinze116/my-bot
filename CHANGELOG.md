@@ -8,3 +8,4 @@
 - Prevent untrusted descriptions from creating invalid Telegram Markdown entities, and filter observed active-participant diary noise.
 - Replace broad X discovery with seven high-signal searches plus `is_announcement()`, and omit empty optional fields from Telegram alerts.
 - Make the project `.env` Telegram token and chat id authoritative over ambient Codex-agent credentials.
+- Add an owner-only Telegram command center with a persistent two-column grid, archive views, health/source status, and customized bot identity.

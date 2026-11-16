@@ -132,3 +132,17 @@ The faults below were temporarily injected into production code, observed by the
 - GREEN excerpt: `1 passed`.
 - Full-suite GREEN command: `make ci`.
 - Full-suite GREEN excerpt: Ruff `All checks passed!`; pytest `37 passed in 0.60s`.
+
+## R-COMMAND-1 — owner-only native command grid
+
+- Tests: `test_grid_uses_two_columns_and_persistent_keyboard`,
+  `test_unauthorized_chat_is_ignored`, `test_grid_and_status_commands_send_owner_dashboard`,
+  `test_bot_customization_registers_minimal_commands`, and
+  `test_database_exposes_recent_items_and_source_counts`.
+- Fault: no command module or database read views existed.
+- RED command: `.venv/bin/python -m pytest -q tests/test_commands.py tests/test_db.py::test_database_exposes_recent_items_and_source_counts`.
+- RED excerpt: `ModuleNotFoundError: No module named 'commands'` during collection.
+- GREEN command: the same selected command after implementation.
+- GREEN excerpt: `5 passed`.
+- Full-suite GREEN command: `make ci`.
+- Full-suite GREEN excerpt: Ruff `All checks passed!`; pytest `42 passed in 0.71s`.

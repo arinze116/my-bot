@@ -104,6 +104,20 @@ Labels and links use Markdown, while untrusted description bodies remain plain e
 provider content breaking Telegram entity parsing. Retryable Telegram failures receive at most
 three attempts with a five-second delay.
 
+## Private command grid
+
+Send `/start` or `/grid` to open the native two-column dashboard:
+
+```text
+📡 Status    🆕 Latest
+📊 Stats     🛰 Sources
+❓ Help      ⌨️ Hide
+```
+
+The grid is restricted to `TELEGRAM_CHAT_ID`. It reports worker status, recent archived titles,
+per-source counts, and active coverage. Other chats are ignored. The standard Telegram command menu
+is intentionally minimal (`/start` and `/grid`) so the dashboard replaces a long command list.
+
 ## Configuration
 
 | Variable | Default | Purpose |

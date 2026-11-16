@@ -11,7 +11,7 @@
 | Item | Value | Label | Source |
 |---|---:|---|---|
 | Poll frequency | 72 cycles/day (1,296,000 / 1,200 seconds) | TARGET | 20-minute PRD interval |
-| Outside reads | about 19/cycle, 1,368/day | GUESS | up to 12 listing reads plus 7 X queries |
+| Outside reads | about 7,128/day | GUESS | 1,368 discovery reads plus up to 5,760 Telegram long polls |
 | Peak source concurrency | 8 calls | TARGET | one worker per enabled source |
 | New records | under 100/day | GUESS | no production history yet |
 | Storage growth | about 37 MB/year at 1 KB x 100/day | GUESS | upper-bound worksheet |
@@ -38,10 +38,11 @@ The system has no inbound public endpoint and no request-per-second serving load
 - **R-SCHEDULE-1:** one polling cycle may run at a time; source failures are isolated and do not cancel successful sources.
 - **R-RUNTIME-1:** production runs the repository's virtualenv through a version-controlled systemd unit, uses Telegram credentials from the explicit project `.env` instead of ambient agent credentials, and restarts after failure.
 - **R-DISCOVERY-1:** X uses seven high-signal registration/deadline/prize queries and only passes tweets containing an announcement signal; retweets, first-person recaps, courses, bootcamps, ex-hackathon hiring, and participant diaries are discarded before delivery.
+- **R-COMMAND-1:** Telegram commands are accepted only from the configured owner chat; command/API failures never stop scheduled polling; `/start` and `/grid` expose a native two-column command keyboard.
 
 ## Architecture
 
-Python 3.11+ modular monolith running as one systemd-managed background worker. APScheduler triggers the orchestrator. Stateless source modules perform bounded reads in parallel. The orchestrator serialises delivery decisions through SQLite. Telegram and X use their HTTP APIs directly because only one endpoint from each API is needed; this avoids heavyweight wrappers and keeps retry/timeout behaviour explicit. X discovery uses seven high-signal queries plus `is_announcement()` before normalization. See `docs/adr/0001-python-worker-and-direct-http.md`, `docs/adr/0002-vps-systemd-runtime.md`, `docs/adr/0005-twitter-high-signal-announcements.md`, and `docs/adr/0006-project-telegram-credentials.md`.
+Python 3.11+ modular monolith running as one systemd-managed background worker. APScheduler triggers the orchestrator. Stateless source modules perform bounded reads in parallel. The orchestrator serialises delivery decisions through SQLite. A separate isolated thread long-polls the same project Telegram bot for owner-only commands. Telegram and X use their HTTP APIs directly to keep retry, timeout, and access behavior visible. X discovery uses seven high-signal queries plus `is_announcement()` before normalization. See ADR-0001, ADR-0002, ADR-0005, ADR-0006, and `docs/adr/0007-private-command-grid.md`.
 
 ## Known limits
 
@@ -50,3 +51,4 @@ Python 3.11+ modular monolith running as one systemd-managed background worker. 
 - "Zero missed hackathons" across the public internet cannot be guaranteed. This worker covers enabled sources that remain accessible.
 - X recent search is relevance- and recency-limited; exact phrases, language filtering, API access, and a 100-result cap can still omit announcements.
 - Free-host availability and persistence depend on the provider plan and volume configuration.
+- Telegram permits only one active `getUpdates` consumer for a bot token; another poller or a webhook would conflict with the command thread.

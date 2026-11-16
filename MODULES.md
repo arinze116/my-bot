@@ -44,3 +44,12 @@
 - **Fails how:** a missing virtualenv dependency fails before startup; systemd records the traceback and retries after ten seconds.
 - **Hard part:** preventing interpreter drift between shell smoke tests and the live service.
 - **Red tests:** `test_settings_uses_project_telegram_token_over_ambient` and `test_systemd_unit_uses_project_virtualenv_and_environment_file` -> R-RUNTIME-1/R-SECRET-1.
+
+## Telegram command center
+
+- **Owns:** bot identity customization, owner-only `getUpdates`, command routing, and the native two-column reply keyboard.
+- **Promises:** only the configured chat can read status/archive data; `/start` and `/grid` expose the dashboard; command failures do not stop APScheduler (R-COMMAND-1).
+- **Depends on:** Telegram Bot API long polling, `Database` read views, and the active source display names.
+- **Fails how:** API/network errors are logged without credentials and retried by the polling loop; unauthorized updates are silently ignored.
+- **Hard part:** avoiding a second `getUpdates` consumer while keeping shutdown bounded.
+- **Red tests:** `test_grid_uses_two_columns_and_persistent_keyboard`, `test_unauthorized_chat_is_ignored`, `test_grid_and_status_commands_send_owner_dashboard`, and `test_bot_customization_registers_minimal_commands` -> R-COMMAND-1.

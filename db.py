@@ -67,6 +67,23 @@ class Database:
             row = connection.execute("SELECT COUNT(*) FROM seen").fetchone()
         return int(row[0])
 
+    def recent_seen(self, *, limit: int = 6) -> list[dict[str, str]]:
+        safe_limit = max(1, min(limit, 20))
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT title, source FROM seen ORDER BY seen_at DESC, rowid DESC LIMIT ?",
+                (safe_limit,),
+            ).fetchall()
+        return [{"title": str(title), "source": str(source)} for title, source in rows]
+
+    def source_counts(self) -> list[tuple[str, int]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT source, COUNT(*) AS total FROM seen "
+                "GROUP BY source ORDER BY total DESC, source ASC"
+            ).fetchall()
+        return [(str(source), int(total)) for source, total in rows]
+
     def is_source_initialized(self, source: str) -> bool:
         with self._connect() as connection:
             row = connection.execute(
