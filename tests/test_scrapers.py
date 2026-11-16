@@ -156,84 +156,33 @@ def test_twitter_item_uses_first_expanded_url() -> None:
     assert item["tech_tags"] == "AI"
 
 
-def test_default_twitter_queries_cover_requested_discovery_terms() -> None:
-    joined = "\n".join(DEFAULT_TWITTER_QUERIES).lower()
-    required_terms = {
-        '"$"',
-        '"24-hour hackathon"',
-        '"48-hour hack"',
-        '"africa hackathon"',
-        '"ai hackathon"',
-        '"applications open"',
-        '"builders grant"',
-        '"builders wanted"',
-        '"call for builders"',
-        '"campus hackathon"',
-        '"climate hackathon"',
-        '"join our hackathon"',
-        '"lagos hackathon"',
-        '"online hackathon"',
-        '"open for registration"',
-        '"open source hackathon"',
-        '"prize pool hackathon"',
-        '"register now"',
-        '"student hackathon"',
-        '"submit by"',
-        '"university hackathon"',
-        '"virtual hackathon"',
-        '"we\'re hosting a hackathon"',
-        '"week-long hackathon"',
-        "aptos hackathon",
-        "arbitrum hackathon",
-        "base hackathon",
-        "bounty hack",
-        "buildathon",
-        "celestia hackathon",
-        "codeathon",
-        "cosmos hackathon",
-        "dorahacks",
-        "encode club",
-        "ethdenver",
-        "ethglobal",
-        "ethindia",
-        "ethrome",
-        "eventbrite",
-        "filecoin hackathon",
-        "fintech hackathon",
-        "ghana hackathon",
-        "gitcoin",
-        "hackathon 2026",
-        "hackathon kicks off",
-        "hackathon starts",
-        "hackathon weekend",
-        "hackclub",
-        "healthtech hackathon",
-        "india hackathon",
-        "kenya hackathon",
-        "latam hackathon",
-        "luma.com",
-        "lu.ma",
-        "mlh",
-        "near hackathon",
-        "nigeria hackathon",
-        "optimism hackathon",
-        "polygon hackathon",
-        "protocol labs",
-        "questbook",
-        "robotics hackathon",
-        "scroll hackathon",
-        "sea hackathon",
-        "solana hackathon",
-        "starknet hackathon",
-        "sui hackathon",
-        "superteam",
-        "taikai",
-        "zksync hackathon",
-    }
+def test_is_announcement_rejects_recap() -> None:
+    text = "I enjoyed the hackathon and we built a great project over the weekend"
+    live_slip = (
+        "During the Spenda hackathon, I was not sure how much time I had left before the "
+        "submission deadline, but submissions were still open"
+    )
 
-    assert required_terms <= {term for term in required_terms if term in joined}
-    assert len(DEFAULT_TWITTER_QUERIES) == 8
-    assert max(map(len, DEFAULT_TWITTER_QUERIES)) <= 512
+    assert twitter.is_announcement(text) is False
+    assert twitter.is_announcement(live_slip) is False
+
+
+def test_is_announcement_accepts_listing() -> None:
+    text = "Registration is open — register now for our AI hackathon https://example.com/apply"
+
+    assert twitter.is_announcement(text) is True
+
+
+def test_default_twitter_queries_cover_requested_discovery_terms() -> None:
+    assert DEFAULT_TWITTER_QUERIES == (
+        "hackathon registration open apply now",
+        "hackathon submissions open deadline",
+        "join our hackathon register now",
+        "hackathon announcement prize pool",
+        "web3 hackathon open registration",
+        "AI hackathon apply deadline",
+        "blockchain hackathon prize winners",
+    )
 
 
 def test_twitter_fetch_filters_requested_noise() -> None:

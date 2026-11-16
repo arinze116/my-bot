@@ -6,3 +6,4 @@
 - Wire manual and systemd execution to the project virtualenv, load `.env` safely with python-dotenv, add the VPS production unit, and include logrotate/watchdog deployment templates.
 - Expand X discovery to eight rate-conscious keyword groups and filter requested retrospective, course, bootcamp, and hiring noise before delivery.
 - Prevent untrusted descriptions from creating invalid Telegram Markdown entities, and filter observed active-participant diary noise.
+- Replace broad X discovery with seven high-signal searches plus `is_announcement()`, and omit empty optional fields from Telegram alerts.

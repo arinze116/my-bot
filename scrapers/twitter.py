@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 from typing import Any
 
 import httpx
@@ -16,12 +17,25 @@ NOISE_PHRASES = (
     "we won",
     "our submission",
     "demo day recap",
+    "i enjoyed",
+    "i was",
+    "we built",
+    "i won",
+    "i participated",
+    "loved the hackathon",
+    "great hackathon",
+    "amazing hackathon",
 )
 NOISE_TERM_PAIRS = (
     ("hiring", "ex-hackathon"),
     ("course", "hackathon"),
     ("bootcamp", "hackathon"),
     ("day 1", "hackathon"),
+)
+ANNOUNCEMENT_SIGNAL = re.compile(
+    r"\b(?:register|apply|join|submit|open|deadline|registration|applications|"
+    r"announcing|launch|prize|win|participate)\b",
+    re.IGNORECASE,
 )
 
 
@@ -47,7 +61,7 @@ def _fetch_queries(
         )
         response.raise_for_status()
         for item in response.json().get("data", []):
-            if _is_noise(str(item.get("text") or "")):
+            if not is_announcement(str(item.get("text") or "")):
                 continue
             results[str(item.get("id"))] = parse_item(item)
     return list(results.values())
@@ -73,6 +87,12 @@ def parse_item(item: dict[str, Any]) -> Hackathon:
 def _queries(raw: str) -> tuple[str, ...]:
     parsed = tuple(value.strip() for value in raw.split("||") if value.strip())
     return parsed or DEFAULT_TWITTER_QUERIES
+
+
+def is_announcement(tweet_text: str) -> bool:
+    if tweet_text.startswith("RT ") or _is_noise(tweet_text):
+        return False
+    return ANNOUNCEMENT_SIGNAL.search(tweet_text) is not None
 
 
 def _is_noise(text: str) -> bool:

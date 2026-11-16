@@ -100,3 +100,22 @@ The faults below were temporarily injected into production code, observed by the
   `Problematic-description delivery confirmed: True` from Telegram.
 - Full-suite GREEN command: `make ci`.
 - Full-suite GREEN excerpt: Ruff `All checks passed!`; pytest `33 passed in 0.63s`.
+
+## R-DISCOVERY-1 and R-DELIVERY-1 — quality filter and empty-field cleanup
+
+- Tests: `test_is_announcement_rejects_recap`, `test_is_announcement_accepts_listing`,
+  `test_format_message_omits_empty_fields`, and `test_format_message_shows_available_fields`.
+- Faults: `is_announcement()` did not exist, and every empty optional field rendered as
+  `Not listed`.
+- RED command: `.venv/bin/python -m pytest -q tests/test_scrapers.py::test_is_announcement_rejects_recap tests/test_scrapers.py::test_is_announcement_accepts_listing tests/test_bot.py::test_format_message_omits_empty_fields tests/test_bot.py::test_format_message_shows_available_fields`.
+- RED excerpts: both discovery tests raised `AttributeError: module 'scrapers.twitter' has no
+  attribute 'is_announcement'`; the formatter assertion showed `Prize Pool: Not listed`,
+  `Start Date: Not listed`, `End Date: Not listed`, and `Deadline: Not listed`.
+- GREEN command: the same four-test command after implementation.
+- GREEN excerpt: `4 passed`.
+- Full-suite GREEN command: `.venv/bin/python -m pytest`.
+- Full-suite GREEN excerpt: `37 passed in 0.61s`.
+- Live refinement RED: the observed first-person text `During the Spenda hackathon, I was...`
+  returned `True`; the safeguard failed with `assert True is False`.
+- Live refinement GREEN: after adding the first-person phrase, the focused test reported `1 passed`
+  and live X output fell to 11 announcement-oriented results from the earlier 132.

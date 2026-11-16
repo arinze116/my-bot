@@ -66,6 +66,49 @@ def test_format_message_does_not_wrap_untrusted_description_in_markdown_entity()
     assert "📝 @shipordie\\_ Day 1" in message
 
 
+def test_format_message_omits_empty_fields() -> None:
+    hackathon = {
+        "title": "Signal Hack",
+        "url": "https://example.com/signal-hack",
+        "platform": "X/Twitter",
+        "prize": None,
+        "start_date": "",
+        "end_date": "Not listed",
+        "deadline": None,
+        "mode": "Online",
+    }
+
+    message = format_message(hackathon)
+
+    assert "📌 *Name:* Signal Hack" in message
+    assert "🏷️ *Platform:* X/Twitter" in message
+    assert "🌍 *Mode:* Online" in message
+    assert "Not listed" not in message
+    assert "*Prize Pool:*" not in message
+    assert "*Start Date:*" not in message
+    assert "*End Date:*" not in message
+    assert "*Deadline:*" not in message
+    assert "[Apply / View Hackathon](https://example.com/signal-hack)" in message
+
+
+def test_format_message_shows_available_fields() -> None:
+    message = format_message(HACKATHON)
+
+    for label in (
+        "Name",
+        "Platform",
+        "Prize Pool",
+        "Start Date",
+        "End Date",
+        "Deadline",
+        "Mode",
+        "Tech / Tags",
+        "Team Size",
+        "Eligibility",
+    ):
+        assert f"*{label}:*" in message
+
+
 def test_send_retries_three_times_then_stops(settings_factory) -> None:
     calls = 0
     sleeps: list[float] = []

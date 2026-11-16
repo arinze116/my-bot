@@ -11,7 +11,7 @@
 | Item | Value | Label | Source |
 |---|---:|---|---|
 | Poll frequency | 72 cycles/day (1,296,000 / 1,200 seconds) | TARGET | 20-minute PRD interval |
-| Outside reads | about 20/cycle, 1,440/day | GUESS | up to 12 listing reads plus 8 X queries |
+| Outside reads | about 19/cycle, 1,368/day | GUESS | up to 12 listing reads plus 7 X queries |
 | Peak source concurrency | 8 calls | TARGET | one worker per enabled source |
 | New records | under 100/day | GUESS | no production history yet |
 | Storage growth | about 37 MB/year at 1 KB x 100/day | GUESS | upper-bound worksheet |
@@ -33,15 +33,15 @@ The system has no inbound public endpoint and no request-per-second serving load
 - **R-TIMEOUT-1:** every outside call has a connect/read/write/pool timeout no greater than 20 seconds.
 - **R-SECRET-1:** credentials never enter source control or log messages; Telegram token-bearing URLs are never logged.
 - **R-DEDUP-1:** a successful notification is inserted with a unique SHA-1 id; a known id is never sent again.
-- **R-DELIVERY-1:** a failed Telegram write is not marked seen and is retried at most three times with the PRD's five-second backoff; untrusted descriptions are escaped but never wrapped as a Markdown entity.
+- **R-DELIVERY-1:** a failed Telegram write is not marked seen and is retried at most three times with the PRD's five-second backoff; untrusted descriptions are escaped but never wrapped as a Markdown entity; empty optional fields are omitted from alerts.
 - **R-BOOTSTRAP-1:** the safe default baselines each source on its first successful read; historical notifications require explicit `--notify-existing` intent.
 - **R-SCHEDULE-1:** one polling cycle may run at a time; source failures are isolated and do not cancel successful sources.
 - **R-RUNTIME-1:** production runs the repository's virtualenv through a version-controlled systemd unit, loads the explicit project environment file without overriding service-provided values, and restarts after failure.
-- **R-DISCOVERY-1:** X searches cover the owner's core, call-to-action, ecosystem, regional, niche, and platform terms in no more than eight 512-character queries; specified retrospective, course, bootcamp, and ex-hackathon hiring noise is discarded before delivery.
+- **R-DISCOVERY-1:** X uses seven high-signal registration/deadline/prize queries and only passes tweets containing an announcement signal; retweets, first-person recaps, courses, bootcamps, ex-hackathon hiring, and participant diaries are discarded before delivery.
 
 ## Architecture
 
-Python 3.11+ modular monolith running as one systemd-managed background worker. APScheduler triggers the orchestrator. Stateless source modules perform bounded reads in parallel. The orchestrator serialises delivery decisions through SQLite. Telegram and X use their HTTP APIs directly because only one endpoint from each API is needed; this avoids heavyweight wrappers and keeps retry/timeout behaviour explicit. X discovery uses eight bounded query groups and local noise rejection before normalization. See `docs/adr/0001-python-worker-and-direct-http.md`, `docs/adr/0002-vps-systemd-runtime.md`, and `docs/adr/0003-x-discovery-query-groups.md`.
+Python 3.11+ modular monolith running as one systemd-managed background worker. APScheduler triggers the orchestrator. Stateless source modules perform bounded reads in parallel. The orchestrator serialises delivery decisions through SQLite. Telegram and X use their HTTP APIs directly because only one endpoint from each API is needed; this avoids heavyweight wrappers and keeps retry/timeout behaviour explicit. X discovery uses seven high-signal queries plus `is_announcement()` before normalization. See `docs/adr/0001-python-worker-and-direct-http.md`, `docs/adr/0002-vps-systemd-runtime.md`, and `docs/adr/0005-twitter-high-signal-announcements.md`.
 
 ## Known limits
 

@@ -15,8 +15,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 def format_message(hackathon: Hackathon | dict[str, object]) -> str:
-    tags = _tag_list(str(hackathon.get("tech_tags", "")))
-    raw_description = str(hackathon.get("description", ""))
+    tags = _tag_list(str(hackathon.get("tech_tags") or ""))
+    raw_description = str(hackathon.get("description") or "")
     for description_limit, detail_limit in ((400, 240), (200, 160), (0, 80), (0, 40)):
         description = _escape_markdown(_truncate(raw_description, description_limit))
         message = _build_message(hackathon, description, tags, detail_limit)
@@ -57,7 +57,10 @@ def _detail_lines(hackathon: Hackathon | dict[str, object], detail_limit: int) -
     )
     lines = []
     for icon, label, key in fields:
-        value = str(hackathon.get(key) or "Not listed")
+        raw_value = hackathon.get(key)
+        value = str(raw_value).strip() if raw_value is not None else ""
+        if not value or value.casefold() == "not listed":
+            continue
         limit = max(detail_limit, 160) if key == "title" else detail_limit
         lines.append(f"{icon} *{label}:* {_escape_markdown(_truncate(value, limit))}")
     return lines

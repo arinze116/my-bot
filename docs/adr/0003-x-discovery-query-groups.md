@@ -1,7 +1,7 @@
 # ADR-0003: Group X discovery terms and reject noise locally
 
 - Date: 2026-11-16 Africa/Lagos
-- Status: accepted
+- Status: superseded by ADR-0005
 - Rule ids affected: R-DISCOVERY-1, R-TIMEOUT-1
 
 ## Context

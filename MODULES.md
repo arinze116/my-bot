@@ -3,11 +3,11 @@
 ## source adapters
 
 - **Owns:** no persistent state; one provider contract per `scrapers/<source>.py`.
-- **Promises:** `fetch() -> list[dict]`; required `title`, `url`, and `platform` values are non-empty; outside calls obey R-TIMEOUT-1; remote fields are treated as untrusted; X queries and noise rejection obey R-DISCOVERY-1.
+- **Promises:** `fetch() -> list[dict]`; required `title`, `url`, and `platform` values are non-empty; outside calls obey R-TIMEOUT-1; remote fields are treated as untrusted; X results pass `is_announcement()` and obey R-DISCOVERY-1.
 - **Depends on:** public provider pages/APIs, whose availability and schemas have no common SLA.
 - **Fails how:** raises a source-scoped exception; the orchestrator logs it and continues other sources.
 - **Hard part:** detecting provider contract drift without creating false alerts.
-- **Red tests:** `test_http_client_uses_bounded_timeouts` -> R-TIMEOUT-1; `test_default_twitter_queries_cover_requested_discovery_terms` and `test_twitter_fetch_filters_requested_noise` -> R-DISCOVERY-1; parser fixture tests -> source contracts.
+- **Red tests:** `test_http_client_uses_bounded_timeouts` -> R-TIMEOUT-1; `test_is_announcement_rejects_recap`, `test_is_announcement_accepts_listing`, and `test_twitter_fetch_filters_requested_noise` -> R-DISCOVERY-1; parser fixture tests -> source contracts.
 
 ## aggregator
 
@@ -30,11 +30,11 @@
 ## Telegram delivery
 
 - **Owns:** Telegram message formatting and outbound `sendMessage` calls.
-- **Promises:** messages stay within Telegram's 4,096-character limit; untrusted descriptions cannot create an unterminated Markdown entity; credentials are not logged (R-SECRET-1); retry count is bounded (R-DELIVERY-1).
+- **Promises:** messages stay within Telegram's 4,096-character limit; empty optional fields are omitted; untrusted descriptions cannot create an unterminated Markdown entity; credentials are not logged (R-SECRET-1); retry count is bounded (R-DELIVERY-1).
 - **Depends on:** Telegram Bot API; a valid bot token and private chat id.
 - **Fails how:** retryable network/429/5xx failures receive up to three attempts; permanent 4xx responses fail immediately.
 - **Hard part:** Markdown escaping and the send/commit crash window.
-- **Red tests:** `test_send_retries_three_times_then_stops` and `test_format_message_does_not_wrap_untrusted_description_in_markdown_entity` -> R-DELIVERY-1; `test_failure_logs_do_not_expose_token` -> R-SECRET-1.
+- **Red tests:** `test_send_retries_three_times_then_stops`, `test_format_message_does_not_wrap_untrusted_description_in_markdown_entity`, `test_format_message_omits_empty_fields`, and `test_format_message_shows_available_fields` -> R-DELIVERY-1; `test_failure_logs_do_not_expose_token` -> R-SECRET-1.
 
 ## runtime deployment
 
