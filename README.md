@@ -48,9 +48,10 @@ python3 -m venv .venv
 cp .env.example .env
 ```
 
-Edit `.env`. The application loads this project file automatically with `python-dotenv`;
-values already provided by the process or service environment take precedence. Alternatively,
-export the required values directly:
+Edit `.env`. The application loads this project file automatically with `python-dotenv`. When the
+file exists, its Telegram token and chat id are authoritative so ambient agent credentials cannot
+redirect notifications. Other settings may still be supplied by the process environment.
+Alternatively, export the required values directly when no project `.env` exists:
 
 ```bash
 export TELEGRAM_BOT_TOKEN="replace-me"

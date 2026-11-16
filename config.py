@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 ENV_FILE = PROJECT_ROOT / ".env"
@@ -45,13 +46,14 @@ class Settings:
     @classmethod
     def from_env(cls) -> Settings:
         load_dotenv(ENV_FILE, override=False)
+        project_env = dotenv_values(ENV_FILE) if ENV_FILE.is_file() else {}
         queries = _split_queries(os.getenv("TWITTER_QUERIES", ""))
         bootstrap_mode = os.getenv("BOOTSTRAP_MODE", "baseline").strip().lower()
         if bootstrap_mode not in {"baseline", "notify"}:
             raise ValueError("BOOTSTRAP_MODE must be 'baseline' or 'notify'")
         return cls(
-            telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", "").strip(),
-            telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID", "").strip(),
+            telegram_bot_token=_project_telegram_value(project_env, "TELEGRAM_BOT_TOKEN"),
+            telegram_chat_id=_project_telegram_value(project_env, "TELEGRAM_CHAT_ID"),
             twitter_bearer_token=os.getenv("TWITTER_BEARER_TOKEN", "").strip(),
             twitter_queries=queries or DEFAULT_TWITTER_QUERIES,
             database_path=Path(os.getenv("DATABASE_PATH", "seen_hackathons.db")),
@@ -116,3 +118,9 @@ def _bounded_float(name: str, default: float, *, maximum: float) -> float:
 
 def _split_queries(raw: str) -> tuple[str, ...]:
     return tuple(item.strip() for item in raw.split("||") if item.strip())
+
+
+def _project_telegram_value(project_env: Mapping[str, str | None], name: str) -> str:
+    if ENV_FILE.is_file():
+        return str(project_env.get(name) or "").strip()
+    return os.getenv(name, "").strip()

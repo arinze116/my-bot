@@ -10,7 +10,7 @@ The first production smoke command used the VPS system Python and failed before 
 
 ## Decision
 
-Keep one project virtualenv at `/home/ubuntu/my-bot/.venv`. Pin the complete requested runtime dependency set in `requirements.txt`. Load `/home/ubuntu/my-bot/.env` with `override=False` for manual execution. Install the version-controlled `deploy/hackathon-radar.service`, whose `ExecStart` uses `.venv/bin/python`, whose working directory is the repository, and whose environment file is the same project `.env`.
+Keep one project virtualenv at `/home/ubuntu/my-bot/.venv`. Pin the complete requested runtime dependency set in `requirements.txt`. Load `/home/ubuntu/my-bot/.env` for manual execution. Install the version-controlled `deploy/hackathon-radar.service`, whose `ExecStart` uses `.venv/bin/python`, whose working directory is the repository, and whose environment file is the same project `.env`. ADR-0006 defines Telegram credential precedence.
 
 ## Alternatives considered
 

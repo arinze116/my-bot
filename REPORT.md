@@ -27,6 +27,7 @@ Make the supplied single-user Hackathon Radar Telegram bot production-ready on t
 - Plain escaped description bodies that cannot open an unterminated Telegram Markdown entity.
 - Seven high-signal X searches gated by `is_announcement()`, plus concise Telegram alerts that
   omit empty optional fields instead of printing `Not listed`.
+- Project `.env` Telegram credentials that cannot be replaced by ambient Codex-agent values.
 
 ## Tested
 

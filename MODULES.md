@@ -39,8 +39,8 @@
 ## runtime deployment
 
 - **Owns:** `.venv`, `deploy/hackathon-radar.service`, logrotate/watchdog templates, process restart policy, and explicit `.env` loading for manual runs.
-- **Promises:** manual and systemd execution use the same dependency set; system environment values win over `.env`; production restarts after process failure (R-RUNTIME-1); credentials remain outside git (R-SECRET-1).
+- **Promises:** manual and systemd execution use the same dependency set; when the project `.env` exists, its Telegram token/chat id override ambient agent values; production restarts after process failure (R-RUNTIME-1); credentials remain outside git (R-SECRET-1).
 - **Depends on:** Python 3.11+, systemd, a readable mode-600 `.env`, network availability, and the repository path remaining `/home/ubuntu/my-bot`.
 - **Fails how:** a missing virtualenv dependency fails before startup; systemd records the traceback and retries after ten seconds.
 - **Hard part:** preventing interpreter drift between shell smoke tests and the live service.
-- **Red tests:** `test_settings_loads_project_dotenv_without_overriding_environment` and `test_systemd_unit_uses_project_virtualenv_and_environment_file` -> R-RUNTIME-1/R-SECRET-1.
+- **Red tests:** `test_settings_uses_project_telegram_token_over_ambient` and `test_systemd_unit_uses_project_virtualenv_and_environment_file` -> R-RUNTIME-1/R-SECRET-1.

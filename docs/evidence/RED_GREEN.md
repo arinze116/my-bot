@@ -119,3 +119,16 @@ The faults below were temporarily injected into production code, observed by the
   returned `True`; the safeguard failed with `assert True is False`.
 - Live refinement GREEN: after adding the first-person phrase, the focused test reported `1 passed`
   and live X output fell to 11 announcement-oriented results from the earlier 132.
+
+## R-RUNTIME-1 — project Telegram credential authority
+
+- Test: `test_settings_uses_project_telegram_token_over_ambient`.
+- Fault: standard dotenv loading used `override=False`, so a fake ambient Codex-agent token won over
+  the token stored in the project `.env`.
+- RED command: `.venv/bin/python -m pytest -q tests/test_config.py::test_settings_uses_project_telegram_token_over_ambient`.
+- RED excerpt: `assert 'ambient-codex-agent-token' == 'project-bot-token'`.
+- GREEN command: the same focused test after reading Telegram credentials directly from the project
+  file when it exists.
+- GREEN excerpt: `1 passed`.
+- Full-suite GREEN command: `make ci`.
+- Full-suite GREEN excerpt: Ruff `All checks passed!`; pytest `37 passed in 0.60s`.
