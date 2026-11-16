@@ -10,3 +10,4 @@
 - Make the project `.env` Telegram token and chat id authoritative over ambient Codex-agent credentials.
 - Add an owner-only Telegram command center with a persistent two-column grid, archive views, health/source status, and customized bot identity.
 - Redesign the Telegram experience with decision-first alerts, human-readable dates, a one-tap opportunity button, personalized copy, a semantic emoji system, clickable fresh finds, and a version-controlled radar/code avatar applied through `setMyProfilePhoto`.
+- Preserve command line breaks and replace verbose command reports with compact, emoji-free response cards governed by per-view line budgets.

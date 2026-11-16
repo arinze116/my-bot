@@ -33,12 +33,14 @@ Make the supplied single-user Hackathon Radar Telegram bot production-ready on t
 - Premium Telegram experience with decision-first alerts, human-readable dates, one-tap opportunity
   actions, personalized startup/grid copy, a semantic emoji system, clickable Fresh results, and a
   version-controlled radar/code avatar applied through the official profile-photo API.
+- Compact command responses that preserve line breaks, remove decorative body emojis, cap Fresh at
+  four results and Vault at five source rows, and enforce explicit per-view line budgets.
 
 ## Tested
 
 | Command | Status | Current-revision evidence |
 |---|---|---|
-| `make ci` | passed | Ruff: `All checks passed!`; pytest: `48 passed in 0.77s` |
+| `make ci` | passed | Ruff: `All checks passed!`; pytest: `49 passed` |
 | `.venv/bin/python main.py --run-once` | passed | exit `0`; fetched 209; zero source errors; all eight source states initialized |
 | `.venv/bin/python -m scripts.check_sources` | passed | Devpost 18; Devfolio 20; DoraHacks 13; MLH 24; Lablab 0; HackerEarth 3; Gitcoin 0; X 132; every adapter reported `PASS` |
 | Telegram delivery probe through `TelegramClient` | passed | `Telegram delivery confirmed: True`; one explicit deployment smoke message confirmed |
@@ -50,10 +52,11 @@ Make the supplied single-user Hackathon Radar Telegram bot production-ready on t
 | quality-filter smoke run | passed | fetched 89; sent 4; skipped 85; zero source errors |
 | concise Telegram formatting | passed | empty/`None`/`Not listed` fields omitted; smoke delivered 4 alerts without formatter failures |
 | premium alert rollout | passed | immediate poll delivered one real redesigned alert with inline action; fetched 89, skipped 88, source errors 0 |
+| compact command rollout | passed | line breaks preserved; decorative body emojis removed; live three-line grid delivered through the project bot |
 | private command grid | passed | personalized `Pulse/Fresh/Vault/Coverage/Guide/Hide` grid delivered through the project bot |
 | bot customization | passed | live getters confirmed name, full/short descriptions, minimal `/start` + `/grid` menu, and profile photo |
 | archive URL migration | passed | production database migrated additively; newest archive row retains its clickable URL |
-| 60-second systemd stability check | passed | active/running; PID `2209102`; `NRestarts=0`; uptime `1min 14s` |
+| 60-second systemd stability check | passed | active/running; PID `2210943`; `NRestarts=0`; uptime `1min 2s` |
 | first scheduled systemd poll | passed | fetched 209; skipped 209; source errors 0; APScheduler logged `executed successfully` |
 | two-minute journal follow | passed | no warning, error, crash, or restart appeared |
 | host hardening verification | passed | logrotate parsed one rule; journald contains `SystemMaxUse=200M`; watchdog visible in `crontab -l` |
@@ -102,7 +105,7 @@ Make the supplied single-user Hackathon Radar Telegram bot production-ready on t
 
 | Criterion | Evidence |
 |---|---|
-| Engineering | `make ci`; 48 tests; RED/GREEN evidence; additive database migration; `SYSTEM.md`; `MODULES.md`; ADRs; live delivery; active systemd service. |
+| Engineering | `make ci`; 49 tests; RED/GREEN evidence; additive database migration; `SYSTEM.md`; `MODULES.md`; ADRs; live delivery; active systemd service. |
 | Design | `docs/telegram-command-ui.md`; native two-column desk; semantic emoji vocabulary; empty/error/recovery states; visual avatar inspection. Telegram-client screenshots remain unavailable. |
 | Branding | `brand/hackathon-radar-avatar.svg` and JPG production asset; named palette; consistent Radar voice across alerts, startup, commands, and errors; live Bot API identity verification. |
 | Video | Not applicable: no video artefact was requested. |

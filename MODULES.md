@@ -48,8 +48,8 @@
 ## Telegram command center
 
 - **Owns:** bot identity customization, owner-only `getUpdates`, command routing, and the native two-column reply keyboard.
-- **Promises:** only the configured chat can read status/archive data; `/start` and `/grid` expose the personalized dashboard; fresh finds are escaped and clickable; bot identity and the JPG avatar can be applied through the project token; command failures do not stop APScheduler (R-COMMAND-1/R-PRESENTATION-1).
+- **Promises:** only the configured chat can read status/archive data; `/start` and `/grid` expose the personalized dashboard; command line breaks survive delivery; each view obeys a compact line budget; fresh finds are escaped and clickable; bot identity and the JPG avatar can be applied through the project token; command failures do not stop APScheduler (R-COMMAND-1/R-PRESENTATION-1).
 - **Depends on:** Telegram Bot API long polling, `Database` read views, and the active source display names.
 - **Fails how:** API/network errors are logged without credentials and retried by the polling loop; unauthorized updates are silently ignored.
 - **Hard part:** avoiding a second `getUpdates` consumer while keeping shutdown bounded.
-- **Red tests:** `test_grid_uses_two_columns_and_persistent_keyboard`, `test_unauthorized_chat_is_ignored`, `test_grid_and_status_commands_send_owner_dashboard`, `test_fresh_finds_are_clickable_and_escape_untrusted_copy`, `test_bot_customization_registers_minimal_commands`, and `test_profile_photo_upload_uses_static_jpg_attachment` -> R-COMMAND-1/R-PRESENTATION-1.
+- **Red tests:** `test_grid_uses_two_columns_and_persistent_keyboard`, `test_unauthorized_chat_is_ignored`, `test_grid_and_status_commands_send_owner_dashboard`, `test_fresh_finds_are_clickable_and_escape_untrusted_copy`, `test_command_outputs_stay_within_compact_line_budgets`, `test_bot_customization_registers_minimal_commands`, and `test_profile_photo_upload_uses_static_jpg_attachment` -> R-COMMAND-1/R-PRESENTATION-1.

@@ -14,6 +14,9 @@ from config import Settings
 from db import Database
 
 LOGGER = logging.getLogger(__name__)
+MAX_FRESH_ITEMS = 4
+MAX_VAULT_SOURCES = 5
+SOURCES_PER_LINE = 4
 
 BOT_COMMANDS = (
     {"command": "start", "description": "Open your private opportunity desk"},
@@ -158,69 +161,46 @@ class TelegramCommandPoller:
         owner_name = escape(self.settings.bot_owner_name)
         source_count = len(self.active_sources)
         return (
-            "🛰️ <b>Hackathon Radar</b>\n\n"
-            f"Welcome back, {owner_name}.\n\n"
-            f"I’m watching <b>{source_count} {_plural(source_count, 'source')}</b> around the "
-            "clock and filtering for opportunities worth opening. Alerts keep running while "
-            "you use the desk.\n\n"
-            "Choose what you want to see."
+            "<b>Hackathon Radar</b>\n"
+            f"{owner_name} · {source_count} {_plural(source_count, 'source')} · "
+            f"{self.settings.poll_interval_minutes}-min scans\n\n"
+            "Choose a view."
         )
 
     def _status_text(self) -> str:
         total = self.database.total_seen()
         source_count = len(self.active_sources)
         return (
-            "📡 <b>Radar pulse</b>\n\n"
-            "🟢 Radar is responding.\n\n"
-            f"<b>Sweep:</b> Every {self.settings.poll_interval_minutes} minutes\n"
-            f"<b>Coverage:</b> {source_count} active {_plural(source_count, 'source')}\n"
-            f"<b>Vault:</b> {total} {_plural(total, 'opportunity')} in your vault\n"
-            f"<b>Next sweep:</b> Within {self.settings.poll_interval_minutes} minutes\n\n"
-            "No action needed."
+            "<b>Radar online</b>\n"
+            f"Every {self.settings.poll_interval_minutes} min · "
+            f"{source_count} {_plural(source_count, 'source')} · {total} saved\n"
+            f"Next scan within {self.settings.poll_interval_minutes} min"
         )
 
     def _latest_text(self) -> str:
-        items = self.database.recent_seen(limit=6)
+        items = self.database.recent_seen(limit=MAX_FRESH_ITEMS)
         if not items:
-            return (
-                "✨ <b>Fresh finds</b>\n\n"
-                "Nothing has landed in the vault yet. The radar is active; the next successful "
-                "sweep will populate this view."
-            )
+            return "<b>Fresh</b>\nNo opportunities yet."
         cards = [_latest_card(index, item) for index, item in enumerate(items, start=1)]
-        return (
-            "✨ <b>Fresh finds</b>\n"
-            "The newest opportunities captured by your radar.\n\n"
-            + "\n\n".join(cards)
-        )
+        return "<b>Fresh</b>\n\n" + "\n".join(cards)
 
     def _stats_text(self) -> str:
         counts = self.database.source_counts()
         if not counts:
-            return (
-                "📈 <b>Opportunity vault</b>\n\n"
-                "Your vault is ready. Captured opportunities and their source mix will appear "
-                "here after the first successful sweep."
-            )
+            return "<b>Vault · 0 saved</b>\nNo opportunities yet."
         total = self.database.total_seen()
-        rows = [f"• {escape(source)} — <b>{count}</b>" for source, count in counts]
-        return (
-            "📈 <b>Opportunity vault</b>\n\n"
-            f"<b>{total}</b> {_plural(total, 'opportunity')} captured.\n\n"
-            "<b>Source mix</b>\n"
-            + "\n".join(rows)
-        )
+        visible_counts = counts[:MAX_VAULT_SOURCES]
+        rows = [f"{escape(source)} · {count}" for source, count in visible_counts]
+        hidden_count = len(counts) - len(visible_counts)
+        if hidden_count:
+            rows.append(f"+{hidden_count} more {_plural(hidden_count, 'source')}")
+        return f"<b>Vault · {total} saved</b>\n\n" + "\n".join(rows)
 
     def _sources_text(self) -> str:
         if not self.active_sources:
-            return "🌐 <b>Coverage map</b>\n\nNo sources are enabled."
-        rows = "\n".join(f"✓ {escape(source)}" for source in self.active_sources)
-        return (
-            "🌐 <b>Coverage map</b>\n\n"
-            f"{rows}\n\n"
-            f"<b>{len(self.active_sources)} sources active.</b> One source can fail without "
-            "stopping the others."
-        )
+            return "<b>Coverage · 0 active</b>\nNo sources enabled."
+        rows = _source_rows(self.active_sources)
+        return f"<b>Coverage · {len(self.active_sources)} active</b>\n\n{rows}"
 
     def _prime_offset(self) -> None:
         result = self._api_call(
@@ -266,7 +246,7 @@ class TelegramCommandPoller:
     ) -> bool:
         payload: dict[str, object] = {
             "chat_id": self.settings.telegram_chat_id,
-            "text": _truncate(text, 4096),
+            "text": _truncate_message(text, 4096),
             "disable_web_page_preview": True,
         }
         if reply_markup is not None:
@@ -292,46 +272,49 @@ class TelegramCommandPoller:
 
 def _help_text() -> str:
     return (
-        "🧭 <b>Quick guide</b>\n\n"
-        "📡 <b>Pulse</b> — check the radar and sweep cadence\n"
-        "✨ <b>Fresh</b> — open your newest opportunities\n"
-        "📈 <b>Vault</b> — review archive totals and source mix\n"
-        "🌐 <b>Coverage</b> — see every active source\n"
-        "⌨️ <b>Hide</b> — clear the grid from your chat\n\n"
-        "Automatic alerts never pause while you use the desk. Send /grid anytime to bring the "
-        "controls back."
+        "<b>Guide</b>\n"
+        "Pulse — status\n"
+        "Fresh — recent opportunities\n"
+        "Vault — archive totals\n"
+        "Coverage — active sources\n"
+        "Hide — remove controls"
     )
 
 
 def _hidden_text() -> str:
-    return (
-        "⌨️ <b>Grid hidden</b>\n\n"
-        "Your alerts are still on. Send /grid whenever you want the command desk back."
-    )
+    return "<b>Grid hidden</b>\nAlerts stay on. Send /grid to restore it."
 
 
 def _unknown_text() -> str:
-    return (
-        "🧭 <b>I didn’t recognize that command.</b>\n\n"
-        "Choose a tile below, or send /grid to reset the desk."
-    )
+    return "<b>Unknown command</b>\nChoose a button below."
 
 
 def _latest_card(index: int, item: dict[str, str]) -> str:
-    title = escape(_truncate(item["title"], 96))
+    title = escape(_truncate_inline(item["title"], 96))
     source = escape(item["source"])
     url = item.get("url", "")
     if not url:
-        return f"<b>{index}. {title}</b>\n{source}"
+        return f"{index}. {title} · {source}"
     safe_url = escape(url, quote=True)
-    return (
-        f"<b>{index}. {title}</b>\n"
-        f"{source} · <a href=\"{safe_url}\">Open opportunity ↗</a>"
-    )
+    return f'{index}. <a href="{safe_url}">{title}</a> · {source}'
 
 
-def _truncate(value: str, limit: int) -> str:
+def _source_rows(sources: Sequence[str]) -> str:
+    rows = []
+    for start in range(0, len(sources), SOURCES_PER_LINE):
+        row = " · ".join(escape(source) for source in sources[start : start + SOURCES_PER_LINE])
+        rows.append(row)
+    return "\n".join(rows)
+
+
+def _truncate_inline(value: str, limit: int) -> str:
     value = " ".join(value.split())
+    if len(value) <= limit:
+        return value
+    return f"{value[: limit - 1].rstrip()}…"
+
+
+def _truncate_message(value: str, limit: int) -> str:
     if len(value) <= limit:
         return value
     return f"{value[: limit - 1].rstrip()}…"

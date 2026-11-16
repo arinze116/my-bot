@@ -18,7 +18,8 @@ humans, keep provider descriptions outside Markdown entities, and attach a one-t
 Personalize the private command desk with `BOT_OWNER_NAME`. Store source URLs in `seen` through an
 additive migration so Fresh finds can be opened. Keep the standard slash menu to `/start` and `/grid`.
 Version the SVG/JPG avatar and apply it through the official `setMyProfilePhoto` API using the project
-bot token.
+bot token. Keep emojis in the navigation grid, not the command bodies; preserve authored line breaks
+and enforce compact per-view line budgets.
 
 ## Consequences
 

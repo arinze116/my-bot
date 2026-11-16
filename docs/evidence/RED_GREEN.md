@@ -177,3 +177,21 @@ The faults below were temporarily injected into production code, observed by the
 - GREEN excerpt: `1 passed`.
 - Full-suite GREEN command: `.venv/bin/ruff check . && .venv/bin/python -m pytest -q`.
 - Full-suite GREEN excerpt: Ruff `All checks passed!`; pytest `48 passed`.
+
+## R-PRESENTATION-1 — uncluttered command responses
+
+- Tests: `test_grid_and_status_commands_send_owner_dashboard`,
+  `test_fresh_finds_are_clickable_and_escape_untrusted_copy`, and
+  `test_command_outputs_stay_within_compact_line_budgets`.
+- Faults: the command transport normalized all whitespace before sending, collapsing authored line
+  breaks into one dense paragraph; the response copy also repeated emojis, explanations, and an
+  `Open opportunity` label for every Fresh row.
+- RED command: the three focused tests above before implementation.
+- RED excerpt: `3 failed`; the grid assertion received one continuous line beginning
+  `🛰️ <b>Hackathon Radar</b> Welcome back, Arinze...`, Fresh still contained
+  `Open opportunity ↗`, and `/grid` exceeded its three-line budget.
+- GREEN command: the same three focused tests after separating inline-title truncation from
+  message-length truncation and tightening every command view.
+- GREEN excerpt: `3 passed`.
+- Full-suite GREEN command: `.venv/bin/ruff check . && .venv/bin/python -m pytest -q`.
+- Full-suite GREEN excerpt: Ruff `All checks passed!`; pytest `49 passed`.

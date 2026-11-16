@@ -63,9 +63,16 @@ def test_grid_and_status_commands_send_owner_dashboard(settings_factory) -> None
     )
 
     assert payloads[0]["reply_markup"] == GRID_MARKUP
-    assert "Welcome back, Arinze." in payloads[0]["text"]
-    assert "Radar pulse" in payloads[1]["text"]
-    assert "1 opportunity in your vault" in payloads[1]["text"]
+    assert payloads[0]["text"] == (
+        "<b>Hackathon Radar</b>\n"
+        "Arinze · 2 sources · 20-min scans\n\n"
+        "Choose a view."
+    )
+    assert payloads[1]["text"] == (
+        "<b>Radar online</b>\n"
+        "Every 20 min · 2 sources · 1 saved\n"
+        "Next scan within 20 min"
+    )
 
 
 def test_fresh_finds_are_clickable_and_escape_untrusted_copy(settings_factory) -> None:
@@ -94,7 +101,39 @@ def test_fresh_finds_are_clickable_and_escape_untrusted_copy(settings_factory) -
     assert payloads[0]["parse_mode"] == "HTML"
     assert "Build &lt;ship&gt; &amp; win" in payloads[0]["text"]
     assert 'href="https://example.com/apply?round=1&amp;track=ai"' in payloads[0]["text"]
-    assert "Open opportunity ↗" in payloads[0]["text"]
+    assert "Open opportunity" not in payloads[0]["text"]
+
+
+def test_command_outputs_stay_within_compact_line_budgets(settings_factory) -> None:
+    settings = settings_factory()
+    database = Database(settings.database_path)
+    database.init()
+    for index in range(7):
+        database.mark_seen(
+            str(index),
+            f"Opportunity {index}",
+            f"Source {index}",
+            f"https://example.com/{index}",
+        )
+    poller = TelegramCommandPoller(
+        settings,
+        database,
+        tuple(f"Source {index}" for index in range(8)),
+        client=httpx.Client(transport=httpx.MockTransport(lambda request: None)),
+    )
+
+    budgets = {
+        "/grid": 3,
+        "/status": 3,
+        "/latest": 5,
+        "/stats": 7,
+        "/sources": 3,
+        "/help": 6,
+    }
+    for command, budget in budgets.items():
+        text, _, _ = poller._response_for(command)
+        meaningful_lines = [line for line in text.splitlines() if line.strip()]
+        assert len(meaningful_lines) <= budget, (command, meaningful_lines)
 
 
 def test_bot_customization_registers_minimal_commands(settings_factory) -> None:

@@ -51,10 +51,25 @@ motion.
 ```
 
 - Layout: three rows and two native buttons per row.
-- Voice: personal, confident, concise; sentence case instead of system-console uppercase.
+- Voice: personal and terse; one heading plus only the requested data.
 - Motion: none added. Telegram's native keyboard behavior is appropriate for a frequently used tool.
-- Principles: decision first; one meaning per symbol; every response ends with clarity about what
-  happens next.
+- Principles: decision first; buttons carry navigation emojis while response bodies stay quiet;
+  preserve line breaks instead of collapsing views into paragraphs.
+
+## Response density budgets
+
+| View | Maximum meaningful lines |
+|---|---:|
+| Grid | 3 |
+| Pulse | 3 |
+| Fresh | 5 |
+| Vault | 7 |
+| Coverage | 3 |
+| Guide | 6 |
+
+Fresh shows at most four linked opportunities. Vault shows at most five source rows plus one compact
+overflow row. Coverage groups four sources per line. Empty, hidden, and unknown-command states use
+two lines.
 
 ## Alert hierarchy
 
@@ -84,9 +99,9 @@ escaped, and the Telegram button uses the validated absolute source URL.
 | Palette and identity | passed | SVG/JPG master in `brand/`; visually inspected at 1024 px. |
 | Type and dark mode | delegated | Telegram-native client rendering. |
 | Spacing and hit targets | passed | Native `ReplyKeyboardMarkup`; two short actions per row. |
-| Empty/error/recovery states | passed | Dedicated copy and regression tests. |
+| Empty/error/recovery states | passed | Two-line copy and regression tests. |
 | Motion/reduced motion | not applicable | No custom motion. |
 | Focus and keyboard | passed | Telegram-native controls plus `/start` and `/grid` fallback. |
 | 390 px/desktop screenshots | blocked | No authenticated Telegram-client screenshot tool is available on the VPS. |
-| Awkward data | passed | HTML/Markdown escaping, bounded titles, URL migration, 4,096 cap tests. |
+| Awkward data | passed | Escaping, bounded titles, preserved line breaks, density budgets, URL migration, and 4,096 cap tests. |
 | Unsourced proof | passed | No user counts, ratings, or performance claims. |
