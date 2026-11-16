@@ -13,6 +13,7 @@ def settings_factory(tmp_path: Path):
         values: dict[str, object] = {
             "telegram_bot_token": "fake-token-for-tests",
             "telegram_chat_id": "123456",
+            "bot_owner_name": "Arinze",
             "twitter_bearer_token": "",
             "twitter_queries": ("hackathon",),
             "database_path": tmp_path / "seen.db",

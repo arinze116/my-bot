@@ -1,52 +1,92 @@
-# Telegram command-grid design
+# Telegram experience design
 
-## Product, audience, job
+## Product, audience, and job
 
-- **Product:** Hackathon Radar, a private Telegram opportunity monitor.
-- **Audience:** one owner checking the bot from a phone or desktop Telegram client.
-- **Job:** expose health, recent captures, archive counts, and source coverage without requiring the
-  owner to remember or browse a long command list.
+- **Product:** Hackathon Radar, a private opportunity-intelligence bot.
+- **Audience:** Arinze, checking Telegram from a phone or desktop client.
+- **Job:** surface enough verified detail to decide whether an opportunity deserves attention in
+  seconds, then make status and archive checks effortless.
 
-## Interface plan
+## Brand direction
 
-Telegram owns the palette, typography, focus ring, button height, dark mode, and motion. The bot
-therefore uses native controls rather than simulated styling.
+Hackathon Radar should feel like a calm private operations desk: early, precise, and useful. It does
+not shout, gamify routine information, or add emoji decoration without meaning.
+
+The editable avatar and production JPG live in `brand/`. Its palette is Midnight `#050B14`, Radar
+cyan `#38E8FF`, Signal mint `#51F6A6`, Opportunity amber `#FFB454`, and Cloud `#F3F7FB`. Telegram
+owns interface typography, background colors, contrast, focus, dark mode, button sizing, and native
+motion.
+
+## Emoji vocabulary
+
+| Emoji | Meaning |
+|---|---|
+| 🚨 | newly detected opportunity |
+| 💰 | prize or funding |
+| ⏳ | application deadline |
+| 🗓️ | event dates |
+| 📍 | delivery format or location |
+| 👥 | team constraints |
+| 🎟️ | eligibility |
+| 🧰 | technical focus |
+| 📝 | opportunity brief |
+| 🔎 | discovery source |
+| 📡 | live worker pulse |
+| ✨ | newest archive entries |
+| 📈 | archive totals |
+| 🌐 | source coverage |
+| 🧭 | guidance or recovery |
+| ⌨️ | command-grid visibility |
+
+## Command desk
 
 ```text
 ┌─────────────┬─────────────┐
-│ 📡 Status   │ 🆕 Latest   │
+│ 📡 Pulse    │ ✨ Fresh    │
 ├─────────────┼─────────────┤
-│ 📊 Stats    │ 🛰 Sources  │
+│ 📈 Vault    │ 🌐 Coverage │
 ├─────────────┼─────────────┤
-│ ❓ Help     │ ⌨️ Hide     │
+│ 🧭 Guide    │ ⌨️ Hide     │
 └─────────────┴─────────────┘
 ```
 
-- Layout: three rows, two equally weighted native buttons.
-- Voice: operational, concise, private; no marketing claims.
-- Motion: none added. Telegram's native press/keyboard behavior is sufficient for a frequent-use
-  dashboard.
-- Principles: short thumb-friendly labels; useful information in one response; automatic alerts
-  stay separate from command interactions.
+- Layout: three rows and two native buttons per row.
+- Voice: personal, confident, concise; sentence case instead of system-console uppercase.
+- Motion: none added. Telegram's native keyboard behavior is appropriate for a frequently used tool.
+- Principles: decision first; one meaning per symbol; every response ends with clarity about what
+  happens next.
+
+## Alert hierarchy
+
+1. Radar hit and opportunity title.
+2. Decision fields: prize, deadline, dates, format, team, eligibility, focus.
+3. Short provider brief.
+4. Source provenance.
+5. One-tap `View opportunity ↗` action.
+
+Empty optional fields disappear. Known ISO dates become day-month-year copy. Provider text remains
+escaped, and the Telegram button uses the validated absolute source URL.
 
 ## States
 
-- **Empty latest/stats:** explains that the next successful poll will populate the archive.
-- **Unknown command:** restores the grid and tells the owner to choose a tile.
-- **Hidden keyboard:** confirms `/grid` restores it.
-- **Network/API error:** logged without credentials; the scheduler and source alerts continue.
+- **Empty Fresh/Vault:** says the radar is active and what will populate the view.
+- **Unknown command:** restores the desk and gives one recovery action.
+- **Hidden grid:** confirms alerts remain active and `/grid` restores controls.
+- **Source error:** identifies the degraded source while confirming other sources continue.
 - **Unauthorized chat:** ignored without disclosing archive or service information.
+- **Legacy archive row:** shown as text when its pre-migration record has no stored URL.
 
 ## UI quality ledger
 
 | Check | Status | Evidence |
 |---|---|---|
-| Plan and layout | passed | Two-column wireframe above; `GRID_MARKUP` contract test. |
-| Palette/type/dark mode | not applicable | Controlled accessibly by the Telegram client. |
-| Spacing and hit targets | passed | Native `ReplyKeyboardMarkup`; short labels; two buttons per row. |
-| Empty/error states | passed | Dedicated command tests and responses. |
+| Plan and information hierarchy | passed | Alert hierarchy and command wireframe above. |
+| Palette and identity | passed | SVG/JPG master in `brand/`; visually inspected at 1024 px. |
+| Type and dark mode | delegated | Telegram-native client rendering. |
+| Spacing and hit targets | passed | Native `ReplyKeyboardMarkup`; two short actions per row. |
+| Empty/error/recovery states | passed | Dedicated copy and regression tests. |
 | Motion/reduced motion | not applicable | No custom motion. |
-| Keyboard/focus | passed | Telegram-native reply keyboard and slash-command fallback. |
-| 390px/desktop screenshots | blocked | No authenticated Telegram-client screenshot tool is available on the VPS. |
-| Awkward data | passed | Titles truncate at 80 characters; response text is capped at 4,096. |
-| Unsourced proof | passed | No user counts, ratings, or performance claims appear. |
+| Focus and keyboard | passed | Telegram-native controls plus `/start` and `/grid` fallback. |
+| 390 px/desktop screenshots | blocked | No authenticated Telegram-client screenshot tool is available on the VPS. |
+| Awkward data | passed | HTML/Markdown escaping, bounded titles, URL migration, 4,096 cap tests. |
+| Unsourced proof | passed | No user counts, ratings, or performance claims. |

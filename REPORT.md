@@ -1,6 +1,6 @@
 # Completion report — Hackathon Radar v1
 
-Date: 2026-11-16 (Africa/Lagos)
+Date: 2026-11-17 (Africa/Lagos)
 Branch: `feat/hackathon-radar-v1`
 
 ## Requested
@@ -30,12 +30,15 @@ Make the supplied single-user Hackathon Radar Telegram bot production-ready on t
 - Project `.env` Telegram credentials that cannot be replaced by ambient Codex-agent values.
 - Customized bot identity and an owner-only Telegram dashboard with a persistent two-column command
   grid, service/archive/source views, and native empty/error states.
+- Premium Telegram experience with decision-first alerts, human-readable dates, one-tap opportunity
+  actions, personalized startup/grid copy, a semantic emoji system, clickable Fresh results, and a
+  version-controlled radar/code avatar applied through the official profile-photo API.
 
 ## Tested
 
 | Command | Status | Current-revision evidence |
 |---|---|---|
-| `make ci` | passed | Ruff: `All checks passed!`; pytest: `42 passed in 0.71s` |
+| `make ci` | passed | Ruff: `All checks passed!`; pytest: `48 passed in 0.77s` |
 | `.venv/bin/python main.py --run-once` | passed | exit `0`; fetched 209; zero source errors; all eight source states initialized |
 | `.venv/bin/python -m scripts.check_sources` | passed | Devpost 18; Devfolio 20; DoraHacks 13; MLH 24; Lablab 0; HackerEarth 3; Gitcoin 0; X 132; every adapter reported `PASS` |
 | Telegram delivery probe through `TelegramClient` | passed | `Telegram delivery confirmed: True`; one explicit deployment smoke message confirmed |
@@ -46,9 +49,11 @@ Make the supplied single-user Hackathon Radar Telegram bot production-ready on t
 | high-signal Twitter filter | passed | 11 live announcement-oriented results, down from the original 132; observed first-person recap removed |
 | quality-filter smoke run | passed | fetched 89; sent 4; skipped 85; zero source errors |
 | concise Telegram formatting | passed | empty/`None`/`Not listed` fields omitted; smoke delivered 4 alerts without formatter failures |
-| private command grid | passed | live two-column keyboard delivered to the project chat; owner-only and empty-state contracts tested |
-| bot customization | passed | name, full/short descriptions, and minimal `/start` + `/grid` menu verified through Bot API getters |
-| 60-second systemd stability check | passed | active/running; PID `2193331`; `NRestarts=0`; uptime `1min 5s` |
+| premium alert rollout | passed | immediate poll delivered one real redesigned alert with inline action; fetched 89, skipped 88, source errors 0 |
+| private command grid | passed | personalized `Pulse/Fresh/Vault/Coverage/Guide/Hide` grid delivered through the project bot |
+| bot customization | passed | live getters confirmed name, full/short descriptions, minimal `/start` + `/grid` menu, and profile photo |
+| archive URL migration | passed | production database migrated additively; newest archive row retains its clickable URL |
+| 60-second systemd stability check | passed | active/running; PID `2209102`; `NRestarts=0`; uptime `1min 14s` |
 | first scheduled systemd poll | passed | fetched 209; skipped 209; source errors 0; APScheduler logged `executed successfully` |
 | two-minute journal follow | passed | no warning, error, crash, or restart appeared |
 | host hardening verification | passed | logrotate parsed one rule; journald contains `SystemMaxUse=200M`; watchdog visible in `crontab -l` |
@@ -97,25 +102,25 @@ Make the supplied single-user Hackathon Radar Telegram bot production-ready on t
 
 | Criterion | Evidence |
 |---|---|
-| Engineering | `make ci`; 42 tests; RED/GREEN evidence; `SYSTEM.md`; `MODULES.md`; ADRs; live source smoke; confirmed Telegram delivery; active systemd service. |
-| Design | Not applicable: no visual interface was requested or created. Telegram text formatting is covered by length and Markdown tests. |
-| Branding | The owner-supplied Hackathon Radar name and alert voice are used consistently; no separate brand system was requested or evaluated. |
+| Engineering | `make ci`; 48 tests; RED/GREEN evidence; additive database migration; `SYSTEM.md`; `MODULES.md`; ADRs; live delivery; active systemd service. |
+| Design | `docs/telegram-command-ui.md`; native two-column desk; semantic emoji vocabulary; empty/error/recovery states; visual avatar inspection. Telegram-client screenshots remain unavailable. |
+| Branding | `brand/hackathon-radar-avatar.svg` and JPG production asset; named palette; consistent Radar voice across alerts, startup, commands, and errors; live Bot API identity verification. |
 | Video | Not applicable: no video artefact was requested. |
 | Research | `docs/research-2026-11-16.md`; official Telegram/X/Railway references; live endpoint and robots checks; corrected source contracts. |
 | Productivity | The fetch-to-alert path, runtime interpreter, service restart policy, scheduler, and host hardening are verified with reproducible commands and live evidence. |
-| Memory | Organisation CORE/context were retrieved before work. No external memory write was made without approval; a proposed update is listed below. |
+| Memory | Organisation CORE/context were retrieved before work; the prior live command-grid deployment was recorded and linted. The premium-experience deployment is proposed below for the next durable fact. |
 
 ## Proposed organisation memory update
 
-Source: this report and `docs/research-2026-11-16.md`.
+Source: this report, ADR-0008, and the live 2026-11-17 rollout.
 
 ```text
-instruction: For Hackathon Radar, run the VPS service with `/home/ubuntu/my-bot/.venv/bin/python`, retain the safe first-sync baseline, and use the verified 2026 source contracts in the repository.
-who: owner engineering organisation
-why: the original PRD named several retired endpoints, and the first smoke run failed when the system interpreter was used instead of the project virtualenv.
-where: /home/ubuntu/my-bot and future Hackathon Radar maintenance
-review: when a live source smoke check fails, the repository moves, or the service runtime changes
-example: the systemd ExecStart must remain `/home/ubuntu/my-bot/.venv/bin/python main.py` while the repository stays at its current path.
+instruction: Preserve Hackathon Radar's decision-first Telegram voice, semantic emoji mapping, project-token bot identity, clickable Fresh archive, and owner-only native command desk.
+who: owner and primary engineering agent
+why: the first functional command grid and alerts were technically correct but not product-quality or fully customized.
+where: /home/ubuntu/my-bot Telegram formatter, command center, brand assets, and SQLite archive views
+review: when adding a command, changing the alert hierarchy, replacing the avatar, becoming multi-user, or changing Telegram API delivery
+example: a new alert leads with Radar hit and the title, omits missing fields, formats dates for humans, and provides one View opportunity button.
 ```
 
 ## Next step

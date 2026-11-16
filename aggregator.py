@@ -113,7 +113,12 @@ class RadarService:
             return
         report.sent += 1
         if not self.dry_run:
-            self.database.mark_seen(uid, hackathon["title"], hackathon["platform"])
+            self.database.mark_seen(
+                uid,
+                hackathon["title"],
+                hackathon["platform"],
+                hackathon["url"],
+            )
 
     def _record_source_error(self, report: CycleReport, batch: SourceBatch) -> None:
         assert batch.error is not None

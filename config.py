@@ -25,6 +25,7 @@ DEFAULT_TWITTER_QUERIES = (
 class Settings:
     telegram_bot_token: str
     telegram_chat_id: str
+    bot_owner_name: str
     twitter_bearer_token: str
     twitter_queries: tuple[str, ...]
     database_path: Path
@@ -54,6 +55,7 @@ class Settings:
         return cls(
             telegram_bot_token=_project_telegram_value(project_env, "TELEGRAM_BOT_TOKEN"),
             telegram_chat_id=_project_telegram_value(project_env, "TELEGRAM_CHAT_ID"),
+            bot_owner_name=os.getenv("BOT_OWNER_NAME", "Arinze").strip() or "Arinze",
             twitter_bearer_token=os.getenv("TWITTER_BEARER_TOKEN", "").strip(),
             twitter_queries=queries or DEFAULT_TWITTER_QUERIES,
             database_path=Path(os.getenv("DATABASE_PATH", "seen_hackathons.db")),

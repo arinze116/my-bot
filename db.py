@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS seen (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL,
     source TEXT NOT NULL,
+    url TEXT NOT NULL DEFAULT '',
     seen_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 )
 """
@@ -33,6 +34,7 @@ class Database:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as connection:
             connection.execute(SEEN_SCHEMA)
+            self._migrate_seen_table(connection)
             connection.execute(SOURCE_STATE_SCHEMA)
 
     def is_seen(self, uid: str) -> bool:
@@ -40,17 +42,22 @@ class Database:
             row = connection.execute("SELECT 1 FROM seen WHERE id = ?", (uid,)).fetchone()
         return row is not None
 
-    def mark_seen(self, uid: str, title: str, source: str) -> bool:
+    def mark_seen(self, uid: str, title: str, source: str, url: str = "") -> bool:
         with self._connect() as connection:
             cursor = connection.execute(
-                "INSERT OR IGNORE INTO seen (id, title, source) VALUES (?, ?, ?)",
-                (uid, title, source),
+                "INSERT OR IGNORE INTO seen (id, title, source, url) VALUES (?, ?, ?, ?)",
+                (uid, title, source, url),
             )
         return cursor.rowcount == 1
 
     def mark_many_seen(self, hackathons: Iterable[Hackathon]) -> int:
         records = [
-            (make_id(item["title"], item["url"]), item["title"], item["platform"])
+            (
+                make_id(item["title"], item["url"]),
+                item["title"],
+                item["platform"],
+                item["url"],
+            )
             for item in hackathons
         ]
         if not records:
@@ -58,7 +65,7 @@ class Database:
         with self._connect() as connection:
             before = connection.total_changes
             connection.executemany(
-                "INSERT OR IGNORE INTO seen (id, title, source) VALUES (?, ?, ?)", records
+                "INSERT OR IGNORE INTO seen (id, title, source, url) VALUES (?, ?, ?, ?)", records
             )
             return connection.total_changes - before
 
@@ -71,10 +78,19 @@ class Database:
         safe_limit = max(1, min(limit, 20))
         with self._connect() as connection:
             rows = connection.execute(
-                "SELECT title, source FROM seen ORDER BY seen_at DESC, rowid DESC LIMIT ?",
+                "SELECT title, source, COALESCE(url, ''), seen_at "
+                "FROM seen ORDER BY seen_at DESC, rowid DESC LIMIT ?",
                 (safe_limit,),
             ).fetchall()
-        return [{"title": str(title), "source": str(source)} for title, source in rows]
+        return [
+            {
+                "title": str(title),
+                "source": str(source),
+                "url": str(url),
+                "seen_at": str(seen_at),
+            }
+            for title, source, url, seen_at in rows
+        ]
 
     def source_counts(self) -> list[tuple[str, int]]:
         with self._connect() as connection:
@@ -101,6 +117,12 @@ class Database:
         connection.execute("PRAGMA journal_mode = WAL")
         return connection
 
+    @staticmethod
+    def _migrate_seen_table(connection: sqlite3.Connection) -> None:
+        columns = {str(row[1]) for row in connection.execute("PRAGMA table_info(seen)")}
+        if "url" not in columns:
+            connection.execute("ALTER TABLE seen ADD COLUMN url TEXT NOT NULL DEFAULT ''")
+
 
 def make_id(title: str, url: str) -> str:
     value = f"{title.lower()}|{url.lower()}".encode()
@@ -125,8 +147,8 @@ def is_seen(uid: str) -> bool:
     return _default_db().is_seen(uid)
 
 
-def mark_seen(uid: str, title: str, source: str) -> bool:
-    return _default_db().mark_seen(uid, title, source)
+def mark_seen(uid: str, title: str, source: str, url: str = "") -> bool:
+    return _default_db().mark_seen(uid, title, source, url)
 
 
 def total_seen() -> int:

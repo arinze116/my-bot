@@ -21,20 +21,20 @@
 ## database
 
 - **Owns:** SQLite `seen` and `source_state` tables.
-- **Promises:** unique notification ids; WAL mode and a busy timeout; source baseline state survives restarts.
+- **Promises:** unique notification ids; source URLs for clickable archive results; additive migration of legacy `seen` tables; WAL mode and a busy timeout; source baseline state survives restarts.
 - **Depends on:** a writable local or mounted filesystem.
 - **Fails how:** database errors abort the current item instead of risking an untracked send.
 - **Hard part:** preserving the archive across cloud redeployments.
-- **Red tests:** unique-id and persistence tests -> R-DEDUP-1/R-BOOTSTRAP-1.
+- **Red tests:** unique-id and persistence tests -> R-DEDUP-1/R-BOOTSTRAP-1; `test_database_migrates_legacy_seen_table_for_clickable_archive` -> R-ARCHIVE-1.
 
 ## Telegram delivery
 
 - **Owns:** Telegram message formatting and outbound `sendMessage` calls.
-- **Promises:** messages stay within Telegram's 4,096-character limit; empty optional fields are omitted; untrusted descriptions cannot create an unterminated Markdown entity; credentials are not logged (R-SECRET-1); retry count is bounded (R-DELIVERY-1).
+- **Promises:** messages stay within Telegram's 4,096-character limit; alerts are decision-first with readable dates and a one-tap action; empty optional fields are omitted; untrusted descriptions cannot create an unterminated Markdown entity; credentials are not logged (R-SECRET-1); retry count is bounded (R-DELIVERY-1/R-PRESENTATION-1).
 - **Depends on:** Telegram Bot API; a valid bot token and private chat id.
 - **Fails how:** retryable network/429/5xx failures receive up to three attempts; permanent 4xx responses fail immediately.
 - **Hard part:** Markdown escaping and the send/commit crash window.
-- **Red tests:** `test_send_retries_three_times_then_stops`, `test_format_message_does_not_wrap_untrusted_description_in_markdown_entity`, `test_format_message_omits_empty_fields`, and `test_format_message_shows_available_fields` -> R-DELIVERY-1; `test_failure_logs_do_not_expose_token` -> R-SECRET-1.
+- **Red tests:** `test_send_retries_three_times_then_stops`, `test_format_message_does_not_wrap_untrusted_description_in_markdown_entity`, `test_format_message_omits_empty_fields`, and `test_format_message_shows_available_fields` -> R-DELIVERY-1; `test_format_message_uses_decision_first_premium_copy` and `test_send_hackathon_adds_one_tap_opportunity_button` -> R-PRESENTATION-1; `test_failure_logs_do_not_expose_token` -> R-SECRET-1.
 
 ## runtime deployment
 
@@ -48,8 +48,8 @@
 ## Telegram command center
 
 - **Owns:** bot identity customization, owner-only `getUpdates`, command routing, and the native two-column reply keyboard.
-- **Promises:** only the configured chat can read status/archive data; `/start` and `/grid` expose the dashboard; command failures do not stop APScheduler (R-COMMAND-1).
+- **Promises:** only the configured chat can read status/archive data; `/start` and `/grid` expose the personalized dashboard; fresh finds are escaped and clickable; bot identity and the JPG avatar can be applied through the project token; command failures do not stop APScheduler (R-COMMAND-1/R-PRESENTATION-1).
 - **Depends on:** Telegram Bot API long polling, `Database` read views, and the active source display names.
 - **Fails how:** API/network errors are logged without credentials and retried by the polling loop; unauthorized updates are silently ignored.
 - **Hard part:** avoiding a second `getUpdates` consumer while keeping shutdown bounded.
-- **Red tests:** `test_grid_uses_two_columns_and_persistent_keyboard`, `test_unauthorized_chat_is_ignored`, `test_grid_and_status_commands_send_owner_dashboard`, and `test_bot_customization_registers_minimal_commands` -> R-COMMAND-1.
+- **Red tests:** `test_grid_uses_two_columns_and_persistent_keyboard`, `test_unauthorized_chat_is_ignored`, `test_grid_and_status_commands_send_owner_dashboard`, `test_fresh_finds_are_clickable_and_escape_untrusted_copy`, `test_bot_customization_registers_minimal_commands`, and `test_profile_photo_upload_uses_static_jpg_attachment` -> R-COMMAND-1/R-PRESENTATION-1.

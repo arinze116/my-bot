@@ -146,3 +146,34 @@ The faults below were temporarily injected into production code, observed by the
 - GREEN excerpt: `5 passed`.
 - Full-suite GREEN command: `make ci`.
 - Full-suite GREEN excerpt: Ruff `All checks passed!`; pytest `42 passed in 0.71s`.
+
+## R-PRESENTATION-1 and R-ARCHIVE-1 — premium Telegram experience
+
+- Tests: `test_format_message_uses_decision_first_premium_copy`,
+  `test_send_hackathon_adds_one_tap_opportunity_button`,
+  `test_startup_message_is_personal_and_actionable`,
+  `test_grid_uses_two_columns_and_persistent_keyboard`,
+  `test_grid_and_status_commands_send_owner_dashboard`,
+  `test_fresh_finds_are_clickable_and_escape_untrusted_copy`,
+  `test_database_exposes_recent_items_and_source_counts`, and
+  `test_database_migrates_legacy_seen_table_for_clickable_archive`.
+- Faults: the existing formatter used the generic `NEW HACKATHON DETECTED` layout and raw dates;
+  delivery had no inline action; startup and grid copy were generic; archive rows stored no URL and
+  had no migration.
+- RED command: the eight focused tests above before implementation.
+- RED excerpt: `8 failed`; assertions showed the old `🏆 *NEW HACKATHON DETECTED*` output, missing
+  `reply_markup`, missing `bot_owner_name`, old grid labels, and
+  `TypeError: Database.mark_seen() takes 4 positional arguments but 5 were given`.
+- GREEN command: the same eight focused tests after implementation.
+- GREEN excerpt: `8 passed`.
+
+## R-COMMAND-1 and R-PRESENTATION-1 — official bot profile photo
+
+- Test: `test_profile_photo_upload_uses_static_jpg_attachment`.
+- Fault: `TelegramCommandPoller` had no `set_profile_photo()` path.
+- RED command: `.venv/bin/python -m pytest -q tests/test_commands.py::test_profile_photo_upload_uses_static_jpg_attachment`.
+- RED excerpt: `AttributeError: 'TelegramCommandPoller' object has no attribute 'set_profile_photo'`.
+- GREEN command: the same focused test after implementing official multipart `setMyProfilePhoto`.
+- GREEN excerpt: `1 passed`.
+- Full-suite GREEN command: `.venv/bin/ruff check . && .venv/bin/python -m pytest -q`.
+- Full-suite GREEN excerpt: Ruff `All checks passed!`; pytest `48 passed`.

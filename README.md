@@ -102,21 +102,29 @@ On the first successful read of each source, the default `BOOTSTRAP_MODE=baselin
 The worker sends one startup status message per process boot. New hackathons are sent individually.
 Labels and links use Markdown, while untrusted description bodies remain plain escaped text to avoid
 provider content breaking Telegram entity parsing. Retryable Telegram failures receive at most
-three attempts with a five-second delay.
+three attempts with a five-second delay. Alerts use a decision-first layout, human-readable dates,
+and a one-tap `View opportunity ↗` button.
+
+Render and apply the version-controlled bot avatar and identity with the project bot token:
+
+```bash
+make brand-avatar
+.venv/bin/python -m scripts.customize_bot
+```
 
 ## Private command grid
 
 Send `/start` or `/grid` to open the native two-column dashboard:
 
 ```text
-📡 Status    🆕 Latest
-📊 Stats     🛰 Sources
-❓ Help      ⌨️ Hide
+📡 Pulse    ✨ Fresh
+📈 Vault    🌐 Coverage
+🧭 Guide    ⌨️ Hide
 ```
 
-The grid is restricted to `TELEGRAM_CHAT_ID`. It reports worker status, recent archived titles,
-per-source counts, and active coverage. Other chats are ignored. The standard Telegram command menu
-is intentionally minimal (`/start` and `/grid`) so the dashboard replaces a long command list.
+The grid is restricted to `TELEGRAM_CHAT_ID`. It reports worker health, opens recent opportunities,
+summarizes the archive, and shows active coverage. Other chats are ignored. The standard Telegram
+command menu is intentionally minimal (`/start` and `/grid`) so the dashboard replaces a long list.
 
 ## Configuration
 
@@ -124,6 +132,7 @@ is intentionally minimal (`/start` and `/grid`) so the dashboard replaces a long
 |---|---|---|
 | `TELEGRAM_BOT_TOKEN` | — | Required for real delivery. |
 | `TELEGRAM_CHAT_ID` | — | Required private destination chat. |
+| `BOT_OWNER_NAME` | `Arinze` | Personalizes private startup and dashboard copy. |
 | `TWITTER_BEARER_TOKEN` | empty | Enables X recent search when present. |
 | `TWITTER_QUERIES` | seven high-signal queries | Leave empty for built-ins, or replace them with custom queries separated by `||`. |
 | `DATABASE_PATH` | `seen_hackathons.db` | SQLite path. Use a persistent mounted path in cloud hosting. |

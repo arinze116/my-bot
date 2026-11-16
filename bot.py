@@ -4,6 +4,7 @@ import logging
 import re
 import time
 from collections.abc import Callable, Sequence
+from datetime import date
 
 import httpx
 
@@ -14,12 +15,13 @@ TELEGRAM_MESSAGE_LIMIT = 4096
 LOGGER = logging.getLogger(__name__)
 
 
-def format_message(hackathon: Hackathon | dict[str, object]) -> str:
-    tags = _tag_list(str(hackathon.get("tech_tags") or ""))
+def format_message(
+    hackathon: Hackathon | dict[str, object], *, include_link: bool = True
+) -> str:
     raw_description = str(hackathon.get("description") or "")
     for description_limit, detail_limit in ((400, 240), (200, 160), (0, 80), (0, 40)):
         description = _escape_markdown(_truncate(raw_description, description_limit))
-        message = _build_message(hackathon, description, tags, detail_limit)
+        message = _build_message(hackathon, description, detail_limit, include_link=include_link)
         if len(message) <= TELEGRAM_MESSAGE_LIMIT:
             return message
     raise ValueError("Hackathon message cannot fit Telegram's length limit")
@@ -28,42 +30,71 @@ def format_message(hackathon: Hackathon | dict[str, object]) -> str:
 def _build_message(
     hackathon: Hackathon | dict[str, object],
     description: str,
-    tags: list[str],
     detail_limit: int,
+    *,
+    include_link: bool,
 ) -> str:
-    lines = ["🏆 *NEW HACKATHON DETECTED*", ""]
+    title = _escape_markdown(_truncate(str(hackathon["title"]), max(detail_limit, 160)))
+    lines = ["🚨 *Radar hit*", "", f"*{title}*", ""]
     lines.extend(_detail_lines(hackathon, detail_limit))
     if description:
-        lines.extend(["", f"📝 {description}"])
-    url = _escape_link_url(str(hackathon["url"]))
-    lines.extend(["", f"🔗 [Apply / View Hackathon]({url})"])
-    if tags:
-        lines.extend(["", " ".join(f"#{tag}" for tag in tags[:5])])
+        lines.extend(["", "📝 *Brief*", description])
+    platform = _escape_markdown(_truncate(str(hackathon["platform"]), detail_limit))
+    lines.extend(["", f"🔎 *Source:* {platform}"])
+    if include_link:
+        url = _escape_link_url(str(hackathon["url"]))
+        lines.extend(["", f"[View opportunity ↗]({url})"])
     return "\n".join(lines)
 
 
 def _detail_lines(hackathon: Hackathon | dict[str, object], detail_limit: int) -> list[str]:
-    fields = (
-        ("📌", "Name", "title"),
-        ("🏷️", "Platform", "platform"),
-        ("💰", "Prize Pool", "prize"),
-        ("📅", "Start Date", "start_date"),
-        ("🏁", "End Date", "end_date"),
-        ("⏰", "Deadline", "deadline"),
-        ("🌍", "Mode", "mode"),
-        ("🛠️", "Tech / Tags", "tech_tags"),
-        ("👥", "Team Size", "team_size"),
-        ("🎯", "Eligibility", "eligibility"),
-    )
+    fields = [
+        ("💰", "Prize", _field_value(hackathon, "prize")),
+        ("⏳", "Apply by", _format_date(_field_value(hackathon, "deadline"))),
+        ("🗓️", "Dates", _date_range(hackathon)),
+        ("📍", "Format", _field_value(hackathon, "mode")),
+        ("👥", "Team", _field_value(hackathon, "team_size")),
+        ("🎟️", "Who can enter", _field_value(hackathon, "eligibility")),
+        ("🧰", "Focus", _format_tags(_field_value(hackathon, "tech_tags"))),
+    ]
     lines = []
-    for icon, label, key in fields:
-        raw_value = hackathon.get(key)
-        value = str(raw_value).strip() if raw_value is not None else ""
-        if not value or value.casefold() == "not listed":
+    for icon, label, value in fields:
+        if not value:
             continue
-        limit = max(detail_limit, 160) if key == "title" else detail_limit
-        lines.append(f"{icon} *{label}:* {_escape_markdown(_truncate(value, limit))}")
+        lines.append(f"{icon} *{label}:* {_escape_markdown(_truncate(value, detail_limit))}")
     return lines
+
+
+def _field_value(hackathon: Hackathon | dict[str, object], key: str) -> str:
+    raw_value = hackathon.get(key)
+    value = str(raw_value).strip() if raw_value is not None else ""
+    return "" if value.casefold() == "not listed" else value
+
+
+def _format_date(value: str) -> str:
+    if not value:
+        return ""
+    try:
+        parsed = date.fromisoformat(value[:10])
+    except ValueError:
+        return value
+    return f"{parsed.day} {parsed.strftime('%b')} {parsed.year}"
+
+
+def _date_range(hackathon: Hackathon | dict[str, object]) -> str:
+    start = _format_date(_field_value(hackathon, "start_date"))
+    end = _format_date(_field_value(hackathon, "end_date"))
+    if start and end:
+        return f"{start} → {end}"
+    if start:
+        return f"Starts {start}"
+    if end:
+        return f"Ends {end}"
+    return ""
+
+
+def _format_tags(value: str) -> str:
+    return " · ".join(item.strip() for item in value.split(",") if item.strip())
 
 
 class TelegramClient:
@@ -82,26 +113,42 @@ class TelegramClient:
         self.sleeper = sleeper
 
     def send_hackathon(self, hackathon: Hackathon) -> bool:
-        return self.send_text(format_message(hackathon))
+        reply_markup = {
+            "inline_keyboard": [
+                [{"text": "View opportunity ↗", "url": str(hackathon["url"])}]
+            ]
+        }
+        return self.send_text(
+            format_message(hackathon, include_link=False), reply_markup=reply_markup
+        )
 
     def send_startup_message(self, total: int, active_sources: Sequence[str]) -> bool:
-        sources = ", ".join(active_sources) or "none"
+        source_count = len(active_sources)
         text = (
-            "🟢 *Hackathon Radar is live*\n\n"
-            f"Active sources: {_escape_markdown(sources)}\n"
-            f"Archived hackathons: {total}"
+            "🟢 *Radar online*\n\n"
+            f"{_escape_markdown(self.settings.bot_owner_name)}, your opportunity watch is active."
+            "\n\n"
+            f"📡 *Sweep:* every {self.settings.poll_interval_minutes} minutes\n"
+            f"🌐 *Coverage:* {source_count} {_plural(source_count, 'source')}\n"
+            f"📚 *Vault:* {total} {_plural(total, 'opportunity')}\n\n"
+            "New listings that clear the signal filter will land here automatically.\n"
+            "Use /grid to open your command desk."
         )
         return self.send_text(text)
 
     def send_error_message(self, source: str, error: Exception) -> bool:
         safe_source = _escape_markdown(source)
         safe_error = _escape_markdown(str(error)[:500])
-        text = f"⚠️ *Hackathon Radar source error*\n\n{safe_source}: {safe_error}"
+        text = (
+            "⚠️ *Source check failed*\n\n"
+            f"*{safe_source}* did not respond during this sweep. The remaining sources are still "
+            f"running.\n\nDetails: {safe_error}"
+        )
         return self.send_text(text)
 
-    def send_text(self, text: str) -> bool:
+    def send_text(self, text: str, *, reply_markup: dict[str, object] | None = None) -> bool:
         for attempt in range(1, self.settings.telegram_retry_attempts + 1):
-            outcome = self._send_once(text)
+            outcome = self._send_once(text, reply_markup)
             if outcome == "success":
                 return True
             if outcome == "permanent" or attempt == self.settings.telegram_retry_attempts:
@@ -113,7 +160,7 @@ class TelegramClient:
         if self._owns_client:
             self.client.close()
 
-    def _send_once(self, text: str) -> str:
+    def _send_once(self, text: str, reply_markup: dict[str, object] | None) -> str:
         endpoint = f"https://api.telegram.org/bot{self.settings.telegram_bot_token}/sendMessage"
         payload = {
             "chat_id": self.settings.telegram_chat_id,
@@ -121,6 +168,8 @@ class TelegramClient:
             "parse_mode": "Markdown",
             "disable_web_page_preview": True,
         }
+        if reply_markup is not None:
+            payload["reply_markup"] = reply_markup
         try:
             response = self.client.post(endpoint, json=payload)
         except httpx.HTTPError as error:
@@ -146,7 +195,10 @@ class ConsoleNotifier:
         return True
 
     def send_startup_message(self, total: int, active_sources: Sequence[str]) -> bool:
-        print(f"Hackathon Radar dry run: {total} archived; sources={', '.join(active_sources)}")
+        print(
+            f"Radar online: {total} archived; {len(active_sources)} active sources; "
+            "dry-run delivery"
+        )
         return True
 
     def send_error_message(self, source: str, error: Exception) -> bool:
@@ -189,15 +241,6 @@ def _escape_link_url(value: str) -> str:
     return value.replace("\\", "\\\\").replace(")", "\\)")
 
 
-def _tag_list(value: str) -> list[str]:
-    tags = []
-    for item in value.split(","):
-        tag = re.sub(r"[^A-Za-z0-9_]", "", item.replace(" ", "_"))
-        if tag and tag not in tags:
-            tags.append(tag[:40])
-    return tags
-
-
 def _truncate(value: str, limit: int) -> str:
     value = " ".join(value.split())
     if not value or limit <= 0:
@@ -205,3 +248,7 @@ def _truncate(value: str, limit: int) -> str:
     if len(value) <= limit:
         return value
     return f"{value[: limit - 1].rstrip()}…"
+
+
+def _plural(count: int, singular: str) -> str:
+    return singular if count == 1 else f"{singular}s"

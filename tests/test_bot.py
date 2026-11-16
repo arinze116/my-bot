@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 
 import httpx
@@ -49,7 +50,7 @@ def test_format_message_preserves_link_under_adversarial_field_lengths() -> None
     message = format_message(huge)
 
     assert len(message) <= TELEGRAM_MESSAGE_LIMIT
-    assert "[Apply / View Hackathon](https://example.com/" in message
+    assert "[View opportunity ↗](https://example.com/" in message
 
 
 def test_format_message_does_not_wrap_untrusted_description_in_markdown_entity() -> None:
@@ -63,7 +64,7 @@ def test_format_message_does_not_wrap_untrusted_description_in_markdown_entity()
     message = format_message(hackathon)
 
     assert "📝 _" not in message
-    assert "📝 @shipordie\\_ Day 1" in message
+    assert "📝 *Brief*\n@shipordie\\_ Day 1" in message
 
 
 def test_format_message_omits_empty_fields() -> None:
@@ -80,33 +81,71 @@ def test_format_message_omits_empty_fields() -> None:
 
     message = format_message(hackathon)
 
-    assert "📌 *Name:* Signal Hack" in message
-    assert "🏷️ *Platform:* X/Twitter" in message
-    assert "🌍 *Mode:* Online" in message
+    assert "*Signal Hack*" in message
+    assert "🔎 *Source:* X/Twitter" in message
+    assert "📍 *Format:* Online" in message
     assert "Not listed" not in message
-    assert "*Prize Pool:*" not in message
-    assert "*Start Date:*" not in message
-    assert "*End Date:*" not in message
-    assert "*Deadline:*" not in message
-    assert "[Apply / View Hackathon](https://example.com/signal-hack)" in message
+    assert "*Prize:*" not in message
+    assert "*Dates:*" not in message
+    assert "*Apply by:*" not in message
+    assert "[View opportunity ↗](https://example.com/signal-hack)" in message
 
 
 def test_format_message_shows_available_fields() -> None:
     message = format_message(HACKATHON)
 
-    for label in (
-        "Name",
-        "Platform",
-        "Prize Pool",
-        "Start Date",
-        "End Date",
-        "Deadline",
-        "Mode",
-        "Tech / Tags",
-        "Team Size",
-        "Eligibility",
-    ):
+    for label in ("Prize", "Apply by", "Dates", "Format", "Focus", "Team", "Who can enter"):
         assert f"*{label}:*" in message
+    assert "*Brief*" in message
+    assert "*Source:*" in message
+
+
+def test_format_message_uses_decision_first_premium_copy() -> None:
+    message = format_message(HACKATHON)
+
+    assert message.startswith("🚨 *Radar hit*\n\n*AI\\_\\[Builders\\] Hack*")
+    assert "💰 *Prize:* $10,000" in message
+    assert "⏳ *Apply by:* 30 Nov 2026" in message
+    assert "🗓️ *Dates:* 1 Dec 2026 → 3 Dec 2026" in message
+    assert "🔎 *Source:* Example" in message
+    assert "[View opportunity ↗](https://example.com/apply?round=(1\\))" in message
+
+
+def test_send_hackathon_adds_one_tap_opportunity_button(settings_factory) -> None:
+    payloads: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payloads.append(json.loads(request.content))
+        return httpx.Response(200, json={"ok": True}, request=request)
+
+    http_client = httpx.Client(transport=httpx.MockTransport(handler))
+    client = TelegramClient(settings_factory(), client=http_client)
+
+    assert client.send_hackathon(HACKATHON) is True
+    assert payloads[0]["reply_markup"] == {
+        "inline_keyboard": [
+            [{"text": "View opportunity ↗", "url": "https://example.com/apply?round=(1)"}]
+        ]
+    }
+    assert "[View opportunity" not in payloads[0]["text"]
+
+
+def test_startup_message_is_personal_and_actionable(settings_factory) -> None:
+    payloads: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payloads.append(json.loads(request.content))
+        return httpx.Response(200, json={"ok": True}, request=request)
+
+    client = TelegramClient(
+        settings_factory(bot_owner_name="Arinze"),
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+
+    assert client.send_startup_message(812, ("Devpost", "DoraHacks")) is True
+    assert "Arinze, your opportunity watch is active." in payloads[0]["text"]
+    assert "*Coverage:* 2 sources" in payloads[0]["text"]
+    assert "Use /grid" in payloads[0]["text"]
 
 
 def test_send_retries_three_times_then_stops(settings_factory) -> None:

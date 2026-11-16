@@ -39,10 +39,12 @@ The system has no inbound public endpoint and no request-per-second serving load
 - **R-RUNTIME-1:** production runs the repository's virtualenv through a version-controlled systemd unit, uses Telegram credentials from the explicit project `.env` instead of ambient agent credentials, and restarts after failure.
 - **R-DISCOVERY-1:** X uses seven high-signal registration/deadline/prize queries and only passes tweets containing an announcement signal; retweets, first-person recaps, courses, bootcamps, ex-hackathon hiring, and participant diaries are discarded before delivery.
 - **R-COMMAND-1:** Telegram commands are accepted only from the configured owner chat; command/API failures never stop scheduled polling; `/start` and `/grid` expose a native two-column command keyboard.
+- **R-PRESENTATION-1:** Telegram alerts lead with the opportunity, use human-readable dates and one semantic emoji per data type, omit empty fields, escape provider content, and include a direct one-tap action.
+- **R-ARCHIVE-1:** successful deliveries retain their source URL for clickable recent views; existing SQLite databases migrate additively without losing legacy rows.
 
 ## Architecture
 
-Python 3.11+ modular monolith running as one systemd-managed background worker. APScheduler triggers the orchestrator. Stateless source modules perform bounded reads in parallel. The orchestrator serialises delivery decisions through SQLite. A separate isolated thread long-polls the same project Telegram bot for owner-only commands. Telegram and X use their HTTP APIs directly to keep retry, timeout, and access behavior visible. X discovery uses seven high-signal queries plus `is_announcement()` before normalization. See ADR-0001, ADR-0002, ADR-0005, ADR-0006, and `docs/adr/0007-private-command-grid.md`.
+Python 3.11+ modular monolith running as one systemd-managed background worker. APScheduler triggers the orchestrator. Stateless source modules perform bounded reads in parallel. The orchestrator serialises delivery decisions through SQLite. A separate isolated thread long-polls the same project Telegram bot for owner-only commands. Telegram and X use their HTTP APIs directly to keep retry, timeout, and access behavior visible. X discovery uses seven high-signal queries plus `is_announcement()` before normalization. The command surface uses native HTML formatting and the archive retains URLs for clickable recent results. See ADR-0001, ADR-0002, ADR-0005, ADR-0006, ADR-0007, and ADR-0008.
 
 ## Known limits
 

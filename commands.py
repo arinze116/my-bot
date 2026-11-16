@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
 import logging
 import threading
 from collections.abc import Sequence
+from html import escape
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -13,19 +16,19 @@ from db import Database
 LOGGER = logging.getLogger(__name__)
 
 BOT_COMMANDS = (
-    {"command": "start", "description": "Open your Radar grid"},
-    {"command": "grid", "description": "Show the command grid"},
+    {"command": "start", "description": "Open your private opportunity desk"},
+    {"command": "grid", "description": "Show the Radar command grid"},
 )
 
 GRID_MARKUP = {
     "keyboard": [
-        ["📡 Status", "🆕 Latest"],
-        ["📊 Stats", "🛰 Sources"],
-        ["❓ Help", "⌨️ Hide"],
+        ["📡 Pulse", "✨ Fresh"],
+        ["📈 Vault", "🌐 Coverage"],
+        ["🧭 Guide", "⌨️ Hide"],
     ],
     "resize_keyboard": True,
     "is_persistent": True,
-    "input_field_placeholder": "Choose a Radar command",
+    "input_field_placeholder": "Open your opportunity desk",
 }
 
 REMOVE_GRID_MARKUP = {"remove_keyboard": True}
@@ -56,19 +59,43 @@ class TelegramCommandPoller:
                 "setMyDescription",
                 {
                     "description": (
-                        "Private hackathon intelligence: high-signal opportunity alerts, "
-                        "source coverage, archive stats, and a compact command grid."
+                        "Your private hackathon intelligence desk. I scan major platforms, cut "
+                        "the noise, and deliver decision-ready opportunities with deadlines, "
+                        "prizes, and direct links."
                     )
                 },
             ),
             (
                 "setMyShortDescription",
-                {"short_description": "Private hackathon alerts and command grid."},
+                {"short_description": "High-signal hackathon intelligence, delivered to you."},
             ),
             ("setMyCommands", {"commands": list(BOT_COMMANDS)}),
         )
         outcomes = [self._api_call(method, payload) is not None for method, payload in calls]
         return all(outcomes)
+
+    def set_profile_photo(self, image_path: str | Path) -> bool:
+        path = Path(image_path)
+        if path.suffix.casefold() not in {".jpg", ".jpeg"}:
+            raise ValueError("Telegram static profile photos must use JPG format")
+        endpoint = f"https://api.telegram.org/bot{self.settings.telegram_bot_token}/setMyProfilePhoto"
+        photo = json.dumps(
+            {"type": "static", "photo": "attach://avatar"},
+            separators=(",", ":"),
+        )
+        try:
+            with path.open("rb") as image:
+                response = self.client.post(
+                    endpoint,
+                    data={"photo": photo},
+                    files={"avatar": (path.name, image, "image/jpeg")},
+                )
+            response.raise_for_status()
+            data = response.json()
+        except (OSError, httpx.HTTPError, ValueError) as error:
+            LOGGER.warning("Telegram profile-photo update failed: %s", type(error).__name__)
+            return False
+        return isinstance(data, dict) and data.get("ok") is True
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -92,7 +119,7 @@ class TelegramCommandPoller:
             self.client.close()
 
     def send_grid(self) -> bool:
-        return self._send_message(_grid_text(), GRID_MARKUP)
+        return self._send_message(self._grid_text(), GRID_MARKUP, parse_mode="HTML")
 
     def handle_update(self, update: dict[str, Any]) -> bool:
         message = update.get("message")
@@ -104,56 +131,96 @@ class TelegramCommandPoller:
         text = str(message.get("text") or "").strip()
         if not text:
             return False
-        response, reply_markup = self._response_for(text)
-        return self._send_message(response, reply_markup)
+        response, reply_markup, parse_mode = self._response_for(text)
+        return self._send_message(response, reply_markup, parse_mode=parse_mode)
 
-    def _response_for(self, text: str) -> tuple[str, dict[str, object] | None]:
+    def _response_for(
+        self, text: str
+    ) -> tuple[str, dict[str, object] | None, str | None]:
         command = text.casefold().split("@", 1)[0]
         if command in {"/start", "/grid", "grid"}:
-            return _grid_text(), GRID_MARKUP
-        if command in {"/status", "📡 status"}:
-            return self._status_text(), GRID_MARKUP
-        if command in {"/latest", "🆕 latest"}:
-            return self._latest_text(), GRID_MARKUP
-        if command in {"/stats", "📊 stats"}:
-            return self._stats_text(), GRID_MARKUP
-        if command in {"/sources", "🛰 sources"}:
-            return self._sources_text(), GRID_MARKUP
-        if command in {"/help", "❓ help"}:
-            return _help_text(), GRID_MARKUP
+            return self._grid_text(), GRID_MARKUP, "HTML"
+        if command in {"/status", "📡 pulse", "📡 status"}:
+            return self._status_text(), GRID_MARKUP, "HTML"
+        if command in {"/latest", "✨ fresh", "🆕 latest"}:
+            return self._latest_text(), GRID_MARKUP, "HTML"
+        if command in {"/stats", "📈 vault", "📊 stats"}:
+            return self._stats_text(), GRID_MARKUP, "HTML"
+        if command in {"/sources", "🌐 coverage", "🛰 sources"}:
+            return self._sources_text(), GRID_MARKUP, "HTML"
+        if command in {"/help", "🧭 guide", "❓ help"}:
+            return _help_text(), GRID_MARKUP, "HTML"
         if command in {"/hide", "⌨️ hide"}:
-            return "Keyboard hidden. Send /grid whenever you want it back.", REMOVE_GRID_MARKUP
-        return "That command is not on the Radar grid. Choose a tile below.", GRID_MARKUP
+            return _hidden_text(), REMOVE_GRID_MARKUP, "HTML"
+        return _unknown_text(), GRID_MARKUP, "HTML"
+
+    def _grid_text(self) -> str:
+        owner_name = escape(self.settings.bot_owner_name)
+        source_count = len(self.active_sources)
+        return (
+            "🛰️ <b>Hackathon Radar</b>\n\n"
+            f"Welcome back, {owner_name}.\n\n"
+            f"I’m watching <b>{source_count} {_plural(source_count, 'source')}</b> around the "
+            "clock and filtering for opportunities worth opening. Alerts keep running while "
+            "you use the desk.\n\n"
+            "Choose what you want to see."
+        )
 
     def _status_text(self) -> str:
+        total = self.database.total_seen()
+        source_count = len(self.active_sources)
         return (
-            "🟢 RADAR ONLINE\n\n"
-            f"Polling: every {self.settings.poll_interval_minutes} minutes\n"
-            f"Archived: {self.database.total_seen()} hackathons\n"
-            f"Sources: {len(self.active_sources)} active"
+            "📡 <b>Radar pulse</b>\n\n"
+            "🟢 Radar is responding.\n\n"
+            f"<b>Sweep:</b> Every {self.settings.poll_interval_minutes} minutes\n"
+            f"<b>Coverage:</b> {source_count} active {_plural(source_count, 'source')}\n"
+            f"<b>Vault:</b> {total} {_plural(total, 'opportunity')} in your vault\n"
+            f"<b>Next sweep:</b> Within {self.settings.poll_interval_minutes} minutes\n\n"
+            "No action needed."
         )
 
     def _latest_text(self) -> str:
         items = self.database.recent_seen(limit=6)
         if not items:
             return (
-                "🆕 LATEST CAPTURES\n\n"
-                "No archived hackathons yet. The next poll will populate this view."
+                "✨ <b>Fresh finds</b>\n\n"
+                "Nothing has landed in the vault yet. The radar is active; the next successful "
+                "sweep will populate this view."
             )
-        cards = [f"{item['source']} — {_truncate(str(item['title']), 80)}" for item in items]
-        return "🆕 LATEST CAPTURES\n\n" + "\n\n".join(cards)
+        cards = [_latest_card(index, item) for index, item in enumerate(items, start=1)]
+        return (
+            "✨ <b>Fresh finds</b>\n"
+            "The newest opportunities captured by your radar.\n\n"
+            + "\n\n".join(cards)
+        )
 
     def _stats_text(self) -> str:
         counts = self.database.source_counts()
         if not counts:
-            return "📊 ARCHIVE SNAPSHOT\n\nNo archived hackathons yet."
-        rows = [f"{source}: {count}" for source, count in counts]
-        rows.append(f"Total: {self.database.total_seen()}")
-        return "📊 ARCHIVE SNAPSHOT\n\n" + "\n".join(rows)
+            return (
+                "📈 <b>Opportunity vault</b>\n\n"
+                "Your vault is ready. Captured opportunities and their source mix will appear "
+                "here after the first successful sweep."
+            )
+        total = self.database.total_seen()
+        rows = [f"• {escape(source)} — <b>{count}</b>" for source, count in counts]
+        return (
+            "📈 <b>Opportunity vault</b>\n\n"
+            f"<b>{total}</b> {_plural(total, 'opportunity')} captured.\n\n"
+            "<b>Source mix</b>\n"
+            + "\n".join(rows)
+        )
 
     def _sources_text(self) -> str:
-        sources = " · ".join(self.active_sources) or "No sources enabled"
-        return f"🛰 ACTIVE SOURCES\n\n{sources}"
+        if not self.active_sources:
+            return "🌐 <b>Coverage map</b>\n\nNo sources are enabled."
+        rows = "\n".join(f"✓ {escape(source)}" for source in self.active_sources)
+        return (
+            "🌐 <b>Coverage map</b>\n\n"
+            f"{rows}\n\n"
+            f"<b>{len(self.active_sources)} sources active.</b> One source can fail without "
+            "stopping the others."
+        )
 
     def _prime_offset(self) -> None:
         result = self._api_call(
@@ -190,7 +257,13 @@ class TelegramCommandPoller:
                 except Exception as error:  # command isolation boundary
                     LOGGER.error("Telegram command failed: %s", type(error).__name__)
 
-    def _send_message(self, text: str, reply_markup: dict[str, object] | None) -> bool:
+    def _send_message(
+        self,
+        text: str,
+        reply_markup: dict[str, object] | None,
+        *,
+        parse_mode: str | None = None,
+    ) -> bool:
         payload: dict[str, object] = {
             "chat_id": self.settings.telegram_chat_id,
             "text": _truncate(text, 4096),
@@ -198,6 +271,8 @@ class TelegramCommandPoller:
         }
         if reply_markup is not None:
             payload["reply_markup"] = reply_markup
+        if parse_mode is not None:
+            payload["parse_mode"] = parse_mode
         return self._api_call("sendMessage", payload) is not None
 
     def _api_call(self, method: str, payload: dict[str, object]) -> object | None:
@@ -215,19 +290,43 @@ class TelegramCommandPoller:
         return data.get("result", True)
 
 
-def _grid_text() -> str:
+def _help_text() -> str:
     return (
-        "🏆 HACKATHON RADAR\n\n"
-        "Your private opportunity command center. Tap a tile below; automatic alerts keep "
-        "running in the background."
+        "🧭 <b>Quick guide</b>\n\n"
+        "📡 <b>Pulse</b> — check the radar and sweep cadence\n"
+        "✨ <b>Fresh</b> — open your newest opportunities\n"
+        "📈 <b>Vault</b> — review archive totals and source mix\n"
+        "🌐 <b>Coverage</b> — see every active source\n"
+        "⌨️ <b>Hide</b> — clear the grid from your chat\n\n"
+        "Automatic alerts never pause while you use the desk. Send /grid anytime to bring the "
+        "controls back."
     )
 
 
-def _help_text() -> str:
+def _hidden_text() -> str:
     return (
-        "❓ RADAR HELP\n\n"
-        "Status checks the worker. Latest shows recent captures. Stats summarizes the archive. "
-        "Sources shows current coverage. Hide removes the keyboard; /grid restores it."
+        "⌨️ <b>Grid hidden</b>\n\n"
+        "Your alerts are still on. Send /grid whenever you want the command desk back."
+    )
+
+
+def _unknown_text() -> str:
+    return (
+        "🧭 <b>I didn’t recognize that command.</b>\n\n"
+        "Choose a tile below, or send /grid to reset the desk."
+    )
+
+
+def _latest_card(index: int, item: dict[str, str]) -> str:
+    title = escape(_truncate(item["title"], 96))
+    source = escape(item["source"])
+    url = item.get("url", "")
+    if not url:
+        return f"<b>{index}. {title}</b>\n{source}"
+    safe_url = escape(url, quote=True)
+    return (
+        f"<b>{index}. {title}</b>\n"
+        f"{source} · <a href=\"{safe_url}\">Open opportunity ↗</a>"
     )
 
 
@@ -240,3 +339,7 @@ def _truncate(value: str, limit: int) -> str:
 
 def _timeout(seconds: float) -> httpx.Timeout:
     return httpx.Timeout(seconds, connect=seconds, read=seconds, write=seconds, pool=seconds)
+
+
+def _plural(count: int, singular: str) -> str:
+    return singular if count == 1 else f"{singular}s"
