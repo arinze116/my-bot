@@ -1,0 +1,15 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+seen_hackathons.db
+seen_hackathons.db-*
+*.sqlite3
+*.log
+dist/
+build/
+*.egg-info/
