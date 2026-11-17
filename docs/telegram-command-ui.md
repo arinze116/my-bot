@@ -38,6 +38,7 @@ motion.
 | 🎯 | owner filters |
 | ⏯ | pause/resume push alerts |
 | 🌅 | daily ongoing digest |
+| 🔖 | saved bookmarks |
 | 📈 | archive totals |
 | 🌐 | source coverage |
 | 🧭 | guidance or recovery |
@@ -49,17 +50,18 @@ motion.
 ┌─────────────┬─────────────┐
 │ 🆕 New      │ 🟢 Ongoing │
 ├─────────────┼─────────────┤
-│ ⏰ Soon     │ 🎯 Filters │
+│ ⏰ Soon     │ 🔖 Bookmarks │
 ├─────────────┼─────────────┤
-│ 📡 Sources  │ ⏯ Alerts  │
+│ 🎯 Filters  │ 📡 Sources  │
 ├─────────────┼─────────────┤
-│ 🌅 Digest   │ 📈 Vault   │
+│ ⏯ Alerts   │ 🌅 Digest   │
 ├─────────────┼─────────────┤
-│ 🧭 Guide    │ ⌨️ Hide     │
+│ 📈 Vault    │ ⌨️ Hide     │
 └─────────────┴─────────────┘
 ```
 
-- Layout: five rows and two native buttons per row. Discovery comes first, controls second, recovery last.
+- Layout: five rows and two native buttons per row. Discovery and saved decisions come first,
+  controls second, archive visibility and keyboard recovery last.
 - Voice: personal and terse; one heading plus only the requested data.
 - Motion: none added. Telegram's native keyboard behavior is appropriate for a frequently used tool.
 - Principles: decision first; buttons carry navigation emojis while response bodies stay quiet;
@@ -72,6 +74,7 @@ motion.
 | Grid | 3 |
 | Status | 3 |
 | New / Ongoing / Soon | one linked event per line, default 10 |
+| Bookmarks | one linked event and one Remove action per item, default 10 |
 | Filters | 7 |
 | Vault | 7 |
 | Sources | one health row per observed source |
@@ -88,7 +91,7 @@ unknown-command states use two lines.
 3. Verified tags and clearly labelled inferred signals.
 4. Filter-match explanation when owner filters are active.
 5. Source list and first-seen time in WAT.
-6. Native Open, Mute, and Interested actions.
+6. Native Open, Mute, and Bookmark actions.
 
 Empty optional fields disappear. Known ISO dates become day-month-year copy. Provider text remains
 escaped, and the Telegram button uses the validated absolute source URL.
@@ -96,6 +99,8 @@ escaped, and the Telegram button uses the validated absolute source URL.
 ## States
 
 - **Empty New/Ongoing/Soon/Vault:** says nothing matches right now without implying source silence.
+- **Empty Bookmarks:** points to the Bookmark action on alerts instead of leaving a dead end.
+- **Removed bookmark:** updates the existing list message immediately and removes its action row.
 - **Unknown command:** restores the desk and gives one recovery action.
 - **Hidden grid:** confirms alerts remain active and `/grid` restores controls.
 - **Source error:** identifies the degraded source while confirming other sources continue.

@@ -58,6 +58,23 @@ class EventStore:
         with self._connect() as connection:
             return self._get_event(connection, event_id)
 
+    def find_event(self, reference: str) -> CanonicalEvent | None:
+        target = reference.strip()
+        if not target:
+            return None
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT event_id FROM events WHERE event_id = ? OR canonical_url = ? LIMIT 1",
+                (target, target),
+            ).fetchone()
+            if row is None and _is_event_id_prefix(target):
+                matches = connection.execute(
+                    "SELECT event_id FROM events WHERE event_id LIKE ? LIMIT 2",
+                    (f"{target}%",),
+                ).fetchall()
+                row = matches[0] if len(matches) == 1 else None
+            return self._get_event(connection, str(row[0])) if row else None
+
     def total_events(self) -> int:
         with self._connect() as connection:
             row = connection.execute("SELECT COUNT(*) FROM events").fetchone()
@@ -111,6 +128,15 @@ class EventStore:
             rows = connection.execute(
                 "SELECT event_id FROM events WHERE muted = 0 "
                 "ORDER BY first_seen_at DESC, rowid DESC LIMIT ?",
+                (max(1, min(limit, 100)),),
+            ).fetchall()
+            return [self._get_event(connection, str(row[0])) for row in rows]
+
+    def list_bookmarks(self, *, limit: int = 20) -> list[CanonicalEvent]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT event_id FROM events WHERE interested = 1 "
+                "ORDER BY last_seen_at DESC, rowid DESC LIMIT ?",
                 (max(1, min(limit, 100)),),
             ).fetchall()
             return [self._get_event(connection, str(row[0])) for row in rows]
@@ -184,8 +210,15 @@ class EventStore:
             connection.execute("DELETE FROM queued_alerts WHERE alert_key = ?", (alert_key,))
 
     def mark_interested(self, event_id: str) -> None:
+        self.set_bookmarked(event_id, bookmarked=True)
+
+    def set_bookmarked(self, event_id: str, *, bookmarked: bool) -> bool:
         with self._connect() as connection:
-            connection.execute("UPDATE events SET interested = 1 WHERE event_id = ?", (event_id,))
+            cursor = connection.execute(
+                "UPDATE events SET interested = ? WHERE event_id = ?",
+                (int(bookmarked), event_id),
+            )
+        return cursor.rowcount == 1
 
     def mute_event(self, event_id: str) -> None:
         with self._connect() as connection:
@@ -459,6 +492,10 @@ def _is_due_within(event: CanonicalEvent, current: datetime, cutoff: datetime) -
 def _deadline_sort_key(event: CanonicalEvent) -> str:
     values = [value for value in (event["reg_deadline"], event["submit_deadline"]) if value]
     return min(values) if values else "9999-12-31"
+
+
+def _is_event_id_prefix(value: str) -> bool:
+    return 8 <= len(value) <= 40 and all(character in "0123456789abcdef" for character in value)
 
 
 _SCHEMA = """

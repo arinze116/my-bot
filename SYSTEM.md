@@ -26,7 +26,7 @@ The system has no inbound public endpoint and no request-per-second serving load
 |---|---|---|
 | `seen` notification records | CONSISTENT | duplicate prevention depends on it |
 | canonical events, sightings, and alerts | CONSISTENT | cross-source dedupe and material-change alerts depend on them |
-| owner preferences and mutes | CONSISTENT | private delivery control must survive restarts |
+| owner preferences, mutes, and bookmarks | CONSISTENT | private owner state must survive restarts |
 | source listing content | EVENTUAL | upstream pages can change between polls |
 | source health and startup status | EVENTUAL | informational and operational, not transactional |
 
@@ -40,18 +40,18 @@ The system has no inbound public endpoint and no request-per-second serving load
 - **R-SCHEDULE-1:** one polling cycle may run at a time; source failures are isolated and do not cancel successful sources.
 - **R-RUNTIME-1:** production runs the repository's virtualenv through a version-controlled systemd unit, uses Telegram credentials from the explicit project `.env` instead of ambient agent credentials, and restarts after failure.
 - **R-DISCOVERY-1:** X uses seven high-signal registration/deadline/prize queries and only passes tweets containing an announcement signal; retweets, first-person recaps, courses, bootcamps, ex-hackathon hiring, and participant diaries are discarded before delivery.
-- **R-COMMAND-1:** Telegram commands are accepted only from the configured owner chat; command/API failures never stop scheduled polling; `/start` and `/grid` expose a native two-column command keyboard.
+- **R-COMMAND-1:** Telegram commands are accepted only from the configured owner chat; command/API failures never stop scheduled polling; `/start` and `/grid` expose a native two-column command keyboard with bookmark access.
 - **R-PRESENTATION-1:** Telegram alerts lead with the opportunity, use human-readable dates and one semantic emoji per data type, omit empty fields, escape provider content, and include a direct one-tap action; command responses preserve intentional line breaks and stay within compact per-view density budgets.
 - **R-ARCHIVE-1:** successful deliveries retain their source URL for clickable recent views; existing SQLite databases migrate additively without losing legacy rows.
 - **R-CANONICAL-1:** matching URLs, or strongly similar titles with overlapping dates and a shared host, merge into one canonical event while retaining every sighting.
 - **R-URL-1:** canonical push alerts are suppressed when their registration/event URL does not resolve after HEAD with GET fallback.
-- **R-CONTROL-1:** only the owner chat can read or mutate filters, pause state, digest state, mutes, and interested flags; preferences reload before each poll cycle.
+- **R-CONTROL-1:** only the owner chat can read or mutate filters, pause state, digest state, mutes, and bookmarks; bookmark add/list/remove state persists in SQLite; preferences reload before each poll cycle.
 - **R-HEALTH-1:** source success and failure streaks persist; three consecutive failures produce one owner warning, repeated at most daily until recovery.
 - **R-DIGEST-1:** ongoing events are grouped once per WAT day outside quiet hours; events alerted as New or Changed in the previous 24 hours are omitted.
 
 ## Architecture
 
-Python 3.11+ modular monolith running as one systemd-managed background worker. APScheduler triggers the orchestrator. Stateless source modules perform bounded reads in parallel. The additive SQLite event store owns canonical events, sightings, alert keys, source health, preferences, and quiet-hour queues while the legacy `seen` table remains for archive compatibility. The alert planner decides New, Material change, Deadline soon, and daily Ongoing digest delivery. A separate isolated thread long-polls the same project Telegram bot for owner-only commands and callbacks. Telegram and X use their HTTP APIs directly so retry, timeout, and access behavior remain visible. See ADR-0009.
+Python 3.11+ modular monolith running as one systemd-managed background worker. APScheduler triggers the orchestrator. Stateless source modules perform bounded reads in parallel. The additive SQLite event store owns canonical events, sightings, alert keys, source health, preferences, bookmarks, and quiet-hour queues while the legacy `seen` table remains for archive compatibility. The alert planner decides New, Material change, Deadline soon, and daily Ongoing digest delivery. A separate isolated thread long-polls the same project Telegram bot for owner-only commands and callbacks. Telegram and X use their HTTP APIs directly so retry, timeout, and access behavior remain visible. See ADR-0009 and ADR-0010.
 
 ## Known limits
 

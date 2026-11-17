@@ -145,6 +145,24 @@ def test_preferences_queue_and_owner_actions_persist(tmp_path) -> None:
     assert store.list_due_alerts(now=datetime(2026, 11, 17, 6, tzinfo=UTC)) == []
 
 
+def test_bookmarks_can_be_added_listed_removed_and_reloaded(tmp_path) -> None:
+    database_path = tmp_path / "radar.db"
+    store = EventStore(database_path)
+    store.init()
+    event = _event()
+    store.upsert_event(event, Sighting("Devpost", event["canonical_url"], "2026-11-17"))
+
+    found = store.find_event(event["event_id"][:8])
+    assert found is not None
+    assert store.set_bookmarked(found["event_id"], bookmarked=True) is True
+
+    reloaded = EventStore(database_path)
+    assert [item["title"] for item in reloaded.list_bookmarks()] == ["Signal Builders Hack"]
+    assert reloaded.find_event(event["canonical_url"])["event_id"] == event["event_id"]
+    assert reloaded.set_bookmarked(event["event_id"], bookmarked=False) is True
+    assert reloaded.list_bookmarks() == []
+
+
 def test_new_and_soon_queries_are_ordered_for_commands(tmp_path) -> None:
     store = EventStore(tmp_path / "radar.db")
     store.init()

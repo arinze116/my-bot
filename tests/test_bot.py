@@ -149,7 +149,7 @@ def test_startup_message_is_personal_and_actionable(settings_factory) -> None:
     assert "Use /grid" in payloads[0]["text"]
 
 
-def test_send_event_adds_open_mute_and_interested_actions(settings_factory) -> None:
+def test_send_event_adds_open_mute_and_bookmark_actions(settings_factory) -> None:
     payloads: list[dict] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -176,8 +176,8 @@ def test_send_event_adds_open_mute_and_interested_actions(settings_factory) -> N
             [
                 {"text": "Mute", "callback_data": "mute:" + event["event_id"]},
                 {
-                    "text": "Interested",
-                    "callback_data": "interest:" + event["event_id"],
+                    "text": "Bookmark",
+                    "callback_data": "bookmark:" + event["event_id"],
                 },
             ],
         ]

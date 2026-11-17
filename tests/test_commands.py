@@ -17,10 +17,10 @@ def test_grid_uses_two_columns_and_persistent_keyboard() -> None:
     assert all(len(row) == 2 for row in rows)
     assert rows == [
         ["🆕 New", "🟢 Ongoing"],
-        ["⏰ Soon", "🎯 Filters"],
-        ["📡 Sources", "⏯ Alerts"],
-        ["🌅 Digest", "📈 Vault"],
-        ["🧭 Guide", "⌨️ Hide"],
+        ["⏰ Soon", "🔖 Bookmarks"],
+        ["🎯 Filters", "📡 Sources"],
+        ["⏯ Alerts", "🌅 Digest"],
+        ["📈 Vault", "⌨️ Hide"],
     ]
     assert GRID_MARKUP["resize_keyboard"] is True
     assert GRID_MARKUP["is_persistent"] is True
@@ -304,6 +304,50 @@ def test_owner_controls_pause_resume_digest_and_filters(settings_factory) -> Non
     assert store.load_preferences()["paused"] is False
 
 
+def test_bookmark_commands_add_list_and_remove(settings_factory) -> None:
+    settings = settings_factory()
+    database = Database(settings.database_path)
+    database.init()
+    store = EventStore(settings.database_path)
+    store.init()
+    event = canonicalize_hackathon(
+        {"title": "Builders Hack", "url": "https://example.com/build", "platform": "Devpost"}
+    )
+    store.upsert_event(event, Sighting("Devpost", event["canonical_url"], event["listed_at"]))
+    poller = TelegramCommandPoller(
+        settings,
+        database,
+        ("Devpost",),
+        event_store=store,
+        client=httpx.Client(transport=httpx.MockTransport(lambda request: None)),
+    )
+
+    missing_text, _, _ = poller._response_for("/bookmark deadbeef")
+    added_text, _, _ = poller._response_for(f"/bookmark {event['event_id'][:8]}")
+    bookmarks_text, bookmarks_markup, _ = poller._response_for("🔖 Bookmarks")
+
+    assert missing_text == "<b>Bookmark not changed</b>\nNo matching event was found."
+    assert added_text == "<b>Bookmark added</b>\nBuilders Hack is saved."
+    assert 'href="https://example.com/build"' in bookmarks_text
+    assert bookmarks_markup == {
+        "inline_keyboard": [
+            [
+                {
+                    "text": "Remove · Builders Hack",
+                    "callback_data": "unbookmark:" + event["event_id"],
+                }
+            ]
+        ]
+    }
+
+    removed_text, _, _ = poller._response_for(f"/unbookmark {event['canonical_url']}")
+    empty_text, empty_markup, _ = poller._response_for("/bookmarks")
+
+    assert removed_text == "<b>Bookmark removed</b>\nBuilders Hack is no longer saved."
+    assert empty_text == "<b>Bookmarks · 0</b>\nTap Bookmark on an alert to save it."
+    assert empty_markup == GRID_MARKUP
+
+
 def test_callback_actions_are_owner_locked_and_persist(settings_factory) -> None:
     payloads: list[tuple[str, dict]] = []
 
@@ -328,10 +372,59 @@ def test_callback_actions_are_owner_locked_and_persist(settings_factory) -> None
         client=httpx.Client(transport=httpx.MockTransport(handler)),
     )
 
+    assert not poller.handle_update(
+        {
+            "callback_query": {
+                "id": "unauthorized-callback",
+                "data": "bookmark:" + event["event_id"],
+                "message": {"chat": {"id": 999999}},
+            }
+        }
+    )
+    assert store.get_event_state(event["event_id"])["interested"] is False
+    assert payloads == []
+
     assert poller.handle_update(
         {
             "callback_query": {
                 "id": "callback-1",
+                "data": "bookmark:" + event["event_id"],
+                "message": {"chat": {"id": int(settings.telegram_chat_id)}},
+            }
+        }
+    )
+    assert store.get_event_state(event["event_id"])["interested"] is True
+    assert payloads[-1] == (
+        "answerCallbackQuery",
+        {"callback_query_id": "callback-1", "text": "Bookmark added"},
+    )
+
+    assert poller.handle_update(
+        {
+            "callback_query": {
+                "id": "callback-2",
+                "data": "unbookmark:" + event["event_id"],
+                "message": {
+                    "message_id": 22,
+                    "chat": {"id": int(settings.telegram_chat_id)},
+                },
+            }
+        }
+    )
+    assert store.get_event_state(event["event_id"])["interested"] is False
+    assert payloads[-2] == (
+        "answerCallbackQuery",
+        {"callback_query_id": "callback-2", "text": "Bookmark removed"},
+    )
+    assert payloads[-1][0] == "editMessageText"
+    assert payloads[-1][1]["text"] == (
+        "<b>Bookmarks · 0</b>\nTap Bookmark on an alert to save it."
+    )
+
+    assert poller.handle_update(
+        {
+            "callback_query": {
+                "id": "callback-3",
                 "data": "interest:" + event["event_id"],
                 "message": {"chat": {"id": int(settings.telegram_chat_id)}},
             }
@@ -340,5 +433,5 @@ def test_callback_actions_are_owner_locked_and_persist(settings_factory) -> None
     assert store.get_event_state(event["event_id"])["interested"] is True
     assert payloads[-1] == (
         "answerCallbackQuery",
-        {"callback_query_id": "callback-1", "text": "Saved as interested"},
+        {"callback_query_id": "callback-3", "text": "Bookmark added"},
     )

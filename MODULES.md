@@ -20,12 +20,12 @@
 
 ## canonical event model and store
 
-- **Owns:** stable event identity, URL/title normalization, status derivation, inferred region/stack tags, canonical event rows, sightings, alert keys, source health, preferences, mutes, interests, and quiet-hour queues.
-- **Promises:** cross-source merges follow R-CANONICAL-1; legacy rows remain intact; material prize/deadline/status changes are explicit; all writes are additive SQLite transactions.
+- **Owns:** stable event identity, URL/title normalization, status derivation, inferred region/stack tags, canonical event rows, sightings, alert keys, source health, preferences, mutes, bookmarks, and quiet-hour queues.
+- **Promises:** cross-source merges follow R-CANONICAL-1; legacy rows remain intact; material prize/deadline/status changes are explicit; bookmark state uses the existing `interested` column and survives restarts; all writes are additive SQLite transactions.
 - **Depends on:** the same SQLite file as the legacy archive and UTC timestamps.
 - **Fails how:** malformed optional fields become unknown/empty; missing required source fields are rejected before canonicalization; database failures abort the affected item.
 - **Hard part:** remote listings do not share stable identifiers, so similarity matching is deliberately conservative.
-- **Red tests:** `test_two_sources_create_one_event_and_one_new_alert`, `test_deadline_change_is_material_not_a_second_new_event`, `test_preferences_queue_and_owner_actions_persist`, and `test_source_health_warns_once_after_error_streak`.
+- **Red tests:** `test_two_sources_create_one_event_and_one_new_alert`, `test_deadline_change_is_material_not_a_second_new_event`, `test_preferences_queue_and_owner_actions_persist`, `test_bookmarks_can_be_added_listed_removed_and_reloaded`, and `test_source_health_warns_once_after_error_streak`.
 
 ## alert planner and URL verifier
 
@@ -48,7 +48,7 @@
 ## Telegram delivery
 
 - **Owns:** Telegram message formatting and outbound `sendMessage` calls.
-- **Promises:** messages stay within Telegram's 4,096-character limit; canonical alerts are seven-line HTML cards with WAT provenance and Open/Mute/Interested actions; ongoing events fit in one bounded digest; inferred tags are labelled; credentials are not logged (R-SECRET-1).
+- **Promises:** messages stay within Telegram's 4,096-character limit; canonical alerts are seven-line HTML cards with WAT provenance and Open/Mute/Bookmark actions; ongoing events fit in one bounded digest; inferred tags are labelled; credentials are not logged (R-SECRET-1).
 - **Depends on:** Telegram Bot API; a valid bot token and private chat id.
 - **Fails how:** retryable network/429/5xx failures receive up to three attempts; permanent 4xx responses fail immediately.
 - **Hard part:** Markdown escaping and the send/commit crash window.
@@ -66,8 +66,8 @@
 ## Telegram command center
 
 - **Owns:** bot identity customization, owner-only `getUpdates`, command routing, and the native two-column reply keyboard.
-- **Promises:** only the configured chat can read or mutate data; `/new`, `/ongoing`, `/soon`, `/filters`, `/mute`, `/pause`, `/resume`, `/sources`, and `/digest` are available from a two-column grid or typed commands; callbacks persist Mute and Interested actions; command failures do not stop APScheduler (R-COMMAND-1/R-CONTROL-1).
+- **Promises:** only the configured chat can read or mutate data; the two-column grid exposes New, Ongoing, Soon, Bookmarks, Filters, Sources, Alerts, Digest, Vault, and Hide; `/bookmarks`, `/bookmark`, and `/unbookmark` provide list/add/remove fallbacks; callbacks persist Mute and Bookmark actions; command failures do not stop APScheduler (R-COMMAND-1/R-CONTROL-1).
 - **Depends on:** Telegram Bot API long polling, legacy `Database`, `EventStore`, and active source display names.
 - **Fails how:** API/network errors are logged without credentials and retried by the polling loop; unauthorized updates are silently ignored.
 - **Hard part:** avoiding a second `getUpdates` consumer while keeping shutdown bounded.
-- **Red tests:** `test_grid_uses_two_columns_and_persistent_keyboard`, `test_unauthorized_chat_is_ignored`, `test_grid_and_status_commands_send_owner_dashboard`, `test_fresh_finds_are_clickable_and_escape_untrusted_copy`, `test_command_outputs_stay_within_compact_line_budgets`, `test_bot_customization_registers_minimal_commands`, and `test_profile_photo_upload_uses_static_jpg_attachment` -> R-COMMAND-1/R-PRESENTATION-1.
+- **Red tests:** `test_grid_uses_two_columns_and_persistent_keyboard`, `test_bookmark_commands_add_list_and_remove`, `test_callback_actions_are_owner_locked_and_persist`, `test_unauthorized_chat_is_ignored`, `test_grid_and_status_commands_send_owner_dashboard`, `test_fresh_finds_are_clickable_and_escape_untrusted_copy`, `test_command_outputs_stay_within_compact_line_budgets`, `test_bot_customization_registers_minimal_commands`, and `test_profile_photo_upload_uses_static_jpg_attachment` -> R-COMMAND-1/R-CONTROL-1/R-PRESENTATION-1.

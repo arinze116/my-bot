@@ -138,7 +138,7 @@ class TelegramClient:
                 [{"text": "Open ↗", "url": event["canonical_url"]}],
                 [
                     {"text": "Mute", "callback_data": f"mute:{event_id}"},
-                    {"text": "Interested", "callback_data": f"interest:{event_id}"},
+                    {"text": "Bookmark", "callback_data": f"bookmark:{event_id}"},
                 ],
             ]
         }

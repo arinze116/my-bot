@@ -110,7 +110,7 @@ On the first successful read of each source, the default `BOOTSTRAP_MODE=baselin
 5. Store that value as `TELEGRAM_CHAT_ID`.
 
 The worker sends one startup status message per process boot. Canonical alerts use compact HTML,
-human-readable dates, first-seen WAT provenance, and native Open, Mute, and Interested actions.
+human-readable dates, first-seen WAT provenance, and native Open, Mute, and Bookmark actions.
 Inferred region/stack signals are labelled. Ongoing opportunities are grouped once per WAT day;
 events alerted as New or Changed in the previous 24 hours are omitted from that digest. Retryable
 Telegram failures receive at most three attempts with a five-second delay.
@@ -128,16 +128,17 @@ Send `/start` or `/grid` to open the native two-column dashboard:
 
 ```text
 🆕 New       🟢 Ongoing
-⏰ Soon      🎯 Filters
-📡 Sources   ⏯ Alerts
-🌅 Digest    📈 Vault
-🧭 Guide     ⌨️ Hide
+⏰ Soon      🔖 Bookmarks
+🎯 Filters   📡 Sources
+⏯ Alerts    🌅 Digest
+📈 Vault     ⌨️ Hide
 ```
 
 The grid is restricted to `TELEGRAM_CHAT_ID`. Typed commands remain available: `/new`, `/ongoing`,
-`/soon`, `/filters`, `/mute`, `/pause`, `/resume`, `/sources`, and `/digest on|off`. Other chats are
-ignored. The standard Telegram command menu stays intentionally minimal (`/start` and `/grid`) so
-the dashboard replaces a long command list.
+`/soon`, `/bookmarks`, `/bookmark`, `/unbookmark`, `/filters`, `/mute`, `/pause`, `/resume`,
+`/sources`, and `/digest on|off`. Tap Bookmark on an alert to save it. The Bookmarks view lists
+saved events with a Remove button. Other chats are ignored. The standard Telegram command menu
+stays intentionally minimal (`/start` and `/grid`) so the dashboard replaces a long command list.
 
 Filter examples:
 
@@ -149,6 +150,9 @@ Filter examples:
 /filters reset
 /mute Devpost
 /mute example.com
+/bookmarks
+/bookmark c21ab1d0
+/unbookmark https://example.com/build
 ```
 
 ## Configuration
@@ -189,6 +193,7 @@ The additive canonical store uses normalized title, canonical URL host, and know
 stable event id. Exact canonical URLs merge. Different URLs merge only when titles are strongly
 similar, dates overlap, and at least one host/link is shared. `events`, `sightings`, `alerts_sent`,
 `source_health`, `user_prefs`, and `queued_alerts` coexist with the legacy `seen` archive.
+Bookmarks reuse the deployed `events.interested` flag so existing saved events remain available.
 
 SQLite uses WAL mode and a five-second busy timeout. On a cloud host, `DATABASE_PATH` must point into a persistent volume. A normal process restart preserves deduplication only if that volume remains attached.
 

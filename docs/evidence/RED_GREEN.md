@@ -279,3 +279,28 @@ The faults below were temporarily injected into production code, observed by the
 - RED excerpt: `assert 1 == 0` because `customize_bot()` ran during `start()`.
 - GREEN excerpt: focused test `1 passed`; customization remains available through
   `.venv/bin/python -m scripts.customize_bot` as an explicit one-off operation.
+
+## R-CONTROL-1 / R-COMMAND-1 — persistent bookmark add, list, and remove
+
+- Tests: `test_bookmarks_can_be_added_listed_removed_and_reloaded`,
+  `test_grid_uses_two_columns_and_persistent_keyboard`,
+  `test_bookmark_commands_add_list_and_remove`,
+  `test_callback_actions_are_owner_locked_and_persist`, and
+  `test_send_event_adds_open_mute_and_bookmark_actions`.
+- Fault injection: inverted the bookmark query to select unbookmarked rows, replaced the grid's
+  Bookmarks button with Guide, and changed the alert label back to Interested while retaining the
+  bookmark callback payload.
+- RED command: `.venv/bin/python -m pytest -q` with the five focused test selectors above.
+- RED excerpt: `5 failed`; persisted bookmarks reloaded as `[]`, the grid differed at row 2,
+  `/bookmarks` reported `Bookmarks · 0` after add, the removal refresh incorrectly retained one
+  event, and the alert payload exposed `Interested` instead of `Bookmark`.
+- GREEN command: the same five focused test selectors after implementation.
+- GREEN excerpt: `5 passed`.
+- Owner-lock fault injection: removed the configured-chat comparison from callback handling.
+- Owner-lock RED command:
+  `.venv/bin/python -m pytest -q tests/test_commands.py::test_callback_actions_are_owner_locked_and_persist`.
+- Owner-lock RED excerpt: `assert not True`; chat `999999` was able to submit a `bookmark:`
+  callback.
+- Owner-lock GREEN excerpt after restoring the guard: `1 passed`.
+- Full-suite GREEN command: `make ci`.
+- Full-suite GREEN excerpt: Ruff `All checks passed!`; pytest `87 passed`.

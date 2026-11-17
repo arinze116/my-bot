@@ -15,6 +15,7 @@ Authoritative product direction: owner PRD dated 2026-11-17. Runtime is Python +
 | Source health in Telegram | Implemented | `/sources` plus three-failure warning |
 | Quiet hours 00:30–06:30 WAT | Implemented | Queue and flush tests |
 | Pause, resume, event/domain mute | Implemented | Owner control and callback tests |
+| Add, list, and remove bookmarks | Implemented | Persistent store, command, callback, and alert-action tests |
 | Daily ongoing digest | Implemented | Once-per-WAT-day digest with 24-hour New/Change suppression |
 | Crowding heuristic | Pending | No reliable cross-source field verified |
 | JSON/CSV export | Pending | v1.1 |

@@ -36,10 +36,10 @@ BOT_COMMANDS = (
 GRID_MARKUP = {
     "keyboard": [
         ["🆕 New", "🟢 Ongoing"],
-        ["⏰ Soon", "🎯 Filters"],
-        ["📡 Sources", "⏯ Alerts"],
-        ["🌅 Digest", "📈 Vault"],
-        ["🧭 Guide", "⌨️ Hide"],
+        ["⏰ Soon", "🔖 Bookmarks"],
+        ["🎯 Filters", "📡 Sources"],
+        ["⏯ Alerts", "🌅 Digest"],
+        ["📈 Vault", "⌨️ Hide"],
     ],
     "resize_keyboard": True,
     "is_persistent": True,
@@ -168,6 +168,13 @@ class TelegramCommandPoller:
             return self._events_text("ongoing", argument), GRID_MARKUP, "HTML"
         if command in {"/soon", "⏰ soon"}:
             return self._events_text("soon", argument), GRID_MARKUP, "HTML"
+        if command in {"/bookmarks", "🔖 bookmarks"}:
+            response, reply_markup = self._bookmarks_response(argument)
+            return response, reply_markup, "HTML"
+        if command in {"/bookmark"}:
+            return self._bookmark_command(argument, bookmarked=True), GRID_MARKUP, "HTML"
+        if command in {"/unbookmark"}:
+            return self._bookmark_command(argument, bookmarked=False), GRID_MARKUP, "HTML"
         if command in {"/latest", "✨ fresh", "🆕 latest"}:
             return self._latest_text(), GRID_MARKUP, "HTML"
         if command in {"/filters", "🎯 filters"}:
@@ -251,6 +258,34 @@ class TelegramCommandPoller:
         if hidden_count:
             rows.append(f"+{hidden_count} more {_plural(hidden_count, 'source')}")
         return f"<b>Vault · {total} saved</b>\n\n" + "\n".join(rows)
+
+    def _bookmarks_response(self, argument: str) -> tuple[str, dict[str, object]]:
+        if self.event_store is None:
+            return (
+                "<b>Bookmarks unavailable</b>\nCanonical event storage is not active.",
+                GRID_MARKUP,
+            )
+        events = self.event_store.list_bookmarks(limit=_limit(argument, default=10))
+        if not events:
+            return "<b>Bookmarks · 0</b>\nTap Bookmark on an alert to save it.", GRID_MARKUP
+        rows = [_event_row(index, event) for index, event in enumerate(events, start=1)]
+        text = f"<b>Bookmarks · {len(events)}</b>\n\n" + "\n".join(rows)
+        return text, _bookmark_markup(events)
+
+    def _bookmark_command(self, argument: str, *, bookmarked: bool) -> str:
+        action = "bookmark" if bookmarked else "unbookmark"
+        if self.event_store is None:
+            return "<b>Bookmarks unavailable</b>\nCanonical event storage is not active."
+        if not argument:
+            return f"<b>Bookmark not changed</b>\nUse /{action} &lt;event id or URL&gt;."
+        event = self.event_store.find_event(argument)
+        if event is None:
+            return "<b>Bookmark not changed</b>\nNo matching event was found."
+        self.event_store.set_bookmarked(event["event_id"], bookmarked=bookmarked)
+        title = escape(_truncate_inline(event["title"], 96))
+        if bookmarked:
+            return f"<b>Bookmark added</b>\n{title} is saved."
+        return f"<b>Bookmark removed</b>\n{title} is no longer saved."
 
     def _sources_text(self) -> str:
         if self.event_store is not None:
@@ -377,15 +412,40 @@ class TelegramCommandPoller:
             muted = tuple(dict.fromkeys((*preferences.muted_event_ids, event_id)))
             self._save_preferences(replace(preferences, muted_event_ids=muted))
             notice = "Muted"
-        elif action == "interest":
-            self.event_store.mark_interested(event_id)
-            notice = "Saved as interested"
+        elif action in {"bookmark", "interest"}:
+            self.event_store.set_bookmarked(event_id, bookmarked=True)
+            notice = "Bookmark added"
+        elif action == "unbookmark":
+            self.event_store.set_bookmarked(event_id, bookmarked=False)
+            notice = "Bookmark removed"
         else:
             return False
-        return self._api_call(
+        acknowledged = self._api_call(
             "answerCallbackQuery",
             {"callback_query_id": callback_id, "text": notice},
         ) is not None
+        if action == "unbookmark":
+            self._refresh_bookmarks_message(message)
+        return acknowledged
+
+    def _refresh_bookmarks_message(self, message: dict[str, Any]) -> None:
+        message_id = message.get("message_id")
+        if not isinstance(message_id, int):
+            return
+        text, reply_markup = self._bookmarks_response("")
+        if "inline_keyboard" not in reply_markup:
+            reply_markup = {"inline_keyboard": []}
+        self._api_call(
+            "editMessageText",
+            {
+                "chat_id": self.settings.telegram_chat_id,
+                "message_id": message_id,
+                "text": text,
+                "disable_web_page_preview": True,
+                "parse_mode": "HTML",
+                "reply_markup": reply_markup,
+            },
+        )
 
     def _prime_offset(self) -> None:
         result = self._api_call(
@@ -464,6 +524,7 @@ def _help_text() -> str:
     return (
         "<b>Guide</b>\n"
         "Find · /new · /ongoing · /soon\n"
+        "Save · /bookmarks · /bookmark · /unbookmark\n"
         "Tune · /filters · /mute\n"
         "Control · /pause · /resume · /digest\n"
         "Health · /sources · /status\n"
@@ -501,6 +562,20 @@ def _event_row(index: int, event: CanonicalEvent) -> str:
     suffix = " · ".join(item for item in details if item)
     row = f'{index}. <a href="{url}">{title}</a>'
     return f"{row} — {escape(suffix)}" if suffix else row
+
+
+def _bookmark_markup(events: Sequence[CanonicalEvent]) -> dict[str, object]:
+    return {
+        "inline_keyboard": [
+            [
+                {
+                    "text": f"Remove · {_truncate_inline(event['title'], 40)}",
+                    "callback_data": f"unbookmark:{event['event_id']}",
+                }
+            ]
+            for event in events
+        ]
+    }
 
 
 def _health_row(item: dict[str, Any], active_sources: Sequence[str]) -> str:
