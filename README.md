@@ -1,6 +1,6 @@
 # Hackathon Radar
 
-Hackathon Radar is a personal Python worker that polls major hackathon platforms every 20 minutes, sends new listings to one Telegram DM, and archives successful notifications in SQLite.
+Hackathon Radar is a private Python intelligence worker that merges hackathon sightings across major platforms and X, then sends owner-filtered New, Deadline, Change, and Ongoing alerts to Telegram.
 
 ## Why it exists
 
@@ -13,13 +13,20 @@ Hackathons are announced across unrelated platforms with different data formats.
 | Devpost | `devpost.com/api/hackathons` | Polls the newest open listings; the former RSS/page endpoints are Cloudflare-blocked from this host. |
 | Devfolio | Embedded `__NEXT_DATA__` on `/hackathons` | Reads open hackathons and registration deadlines. |
 | DoraHacks | `/api/v1/hub/hackathons` | Reads upcoming and ongoing pages with polite delays. |
+| ETHGlobal | Public `/events` cards | Keeps upcoming/ongoing hackathon cards; the guessed API route is not public. |
 | MLH | Embedded JSON on season pages | Reads the current and next season by default. |
 | Lablab.ai | `starfieldlabs.ai/events` | Lablab now redirects to Starfield Labs; zero events is a valid result. |
 | HackerEarth | `/api/community/challenges/compete/` | Filters the current listing to `type == Hackathon` and unexpired entries. |
 | Gitcoin | `gitcoin.co/campaigns` | Emits only campaign cards explicitly labelled hackathon, buildathon, or bounty. The old Grants Stack API host is gone. |
 | X | `/2/tweets/search/recent` | Optional. Requires an X developer bearer token and account access to recent search. |
 
-Source contracts were live-checked on 2026-11-16. They are public or undocumented surfaces and can change. Run `make smoke-sources` after deployment or whenever a provider stops producing results.
+Luma is currently marked **unavailable**, not silently ignored: its public discover page does not
+render search results server-side, and the search endpoint used by Luma's official client requires a
+signed-in user. See `docs/research-2026-11-17-prd-sources.md`.
+
+The original source contracts were live-checked on 2026-11-16; ETHGlobal and Luma discovery were
+checked on 2026-11-17. Public or undocumented surfaces can change. Run `make smoke-sources` after
+deployment or whenever a provider stops producing results.
 
 ## Architecture
 
@@ -27,11 +34,14 @@ Source contracts were live-checked on 2026-11-16. They are public or undocumente
 flowchart LR
     A[APScheduler<br/>every 20 min] --> B[Parallel source adapters]
     B --> C[Validate and normalise]
-    C --> D{SHA-1 already in SQLite?}
-    D -- yes --> E[Skip]
-    D -- no --> F[Telegram sendMessage]
-    F -- success --> G[Insert seen record]
-    F -- failure --> H[Leave unseen for next cycle]
+    C --> D[Canonical event + sightings]
+    D --> E[Owner filters + alert planner]
+    E --> F{Alert key sent?}
+    F -- yes --> G[Skip]
+    F -- no --> H[Resolve URL]
+    H --> I[Telegram alert or digest]
+    I -- success --> J[Record alert key]
+    I -- failure --> K[Leave pending for retry]
 ```
 
 One source failure is isolated from the rest of the cycle. The scheduler allows only one cycle at a time. Every outside call has a bounded timeout.
@@ -99,11 +109,11 @@ On the first successful read of each source, the default `BOOTSTRAP_MODE=baselin
 4. Open `https://api.telegram.org/bot<TOKEN>/getUpdates` locally and copy your private chat's `message.chat.id`.
 5. Store that value as `TELEGRAM_CHAT_ID`.
 
-The worker sends one startup status message per process boot. New hackathons are sent individually.
-Labels and links use Markdown, while untrusted description bodies remain plain escaped text to avoid
-provider content breaking Telegram entity parsing. Retryable Telegram failures receive at most
-three attempts with a five-second delay. Alerts use a decision-first layout, human-readable dates,
-and a one-tap `View opportunity ↗` button.
+The worker sends one startup status message per process boot. Canonical alerts use compact HTML,
+human-readable dates, first-seen WAT provenance, and native Open, Mute, and Interested actions.
+Inferred region/stack signals are labelled. Ongoing opportunities are grouped once per WAT day;
+events alerted as New or Changed in the previous 24 hours are omitted from that digest. Retryable
+Telegram failures receive at most three attempts with a five-second delay.
 
 Render and apply the version-controlled bot avatar and identity with the project bot token:
 
@@ -117,14 +127,29 @@ make brand-avatar
 Send `/start` or `/grid` to open the native two-column dashboard:
 
 ```text
-📡 Pulse    ✨ Fresh
-📈 Vault    🌐 Coverage
-🧭 Guide    ⌨️ Hide
+🆕 New       🟢 Ongoing
+⏰ Soon      🎯 Filters
+📡 Sources   ⏯ Alerts
+🌅 Digest    📈 Vault
+🧭 Guide     ⌨️ Hide
 ```
 
-The grid is restricted to `TELEGRAM_CHAT_ID`. It reports worker health, opens recent opportunities,
-summarizes the archive, and shows active coverage. Other chats are ignored. The standard Telegram
-command menu is intentionally minimal (`/start` and `/grid`) so the dashboard replaces a long list.
+The grid is restricted to `TELEGRAM_CHAT_ID`. Typed commands remain available: `/new`, `/ongoing`,
+`/soon`, `/filters`, `/mute`, `/pause`, `/resume`, `/sources`, and `/digest on|off`. Other chats are
+ignored. The standard Telegram command menu stays intentionally minimal (`/start` and `/grid`) so
+the dashboard replaces a long command list.
+
+Filter examples:
+
+```text
+/filters region africa,global
+/filters stack ai,solana
+/filters mode online,hybrid
+/filters prize 5000
+/filters reset
+/mute Devpost
+/mute example.com
+```
 
 ## Configuration
 
@@ -132,7 +157,7 @@ command menu is intentionally minimal (`/start` and `/grid`) so the dashboard re
 |---|---|---|
 | `TELEGRAM_BOT_TOKEN` | — | Required for real delivery. |
 | `TELEGRAM_CHAT_ID` | — | Required private destination chat. |
-| `BOT_OWNER_NAME` | `Arinze` | Personalizes private startup and dashboard copy. |
+| `BOT_OWNER_NAME` | `Chinweuba` | Personalizes private startup and dashboard copy. |
 | `TWITTER_BEARER_TOKEN` | empty | Enables X recent search when present. |
 | `TWITTER_QUERIES` | seven high-signal queries | Leave empty for built-ins, or replace them with custom queries separated by `||`. |
 | `DATABASE_PATH` | `seen_hackathons.db` | SQLite path. Use a persistent mounted path in cloud hosting. |
@@ -154,13 +179,16 @@ recaps, hackathon courses/bootcamps, ex-hackathon hiring, and participant diarie
 
 ## Data and deduplication
 
-The notification id follows the PRD exactly:
+The legacy archive id remains:
 
 ```text
 SHA-1(title.lower() + "|" + url.lower())
 ```
 
-`seen` stores successfully sent or deliberately baselined listings. `source_state` records which sources have completed first sync, including sources that currently return zero items.
+The additive canonical store uses normalized title, canonical URL host, and known start date for its
+stable event id. Exact canonical URLs merge. Different URLs merge only when titles are strongly
+similar, dates overlap, and at least one host/link is shared. `events`, `sightings`, `alerts_sent`,
+`source_health`, `user_prefs`, and `queued_alerts` coexist with the legacy `seen` archive.
 
 SQLite uses WAL mode and a five-second busy timeout. On a cloud host, `DATABASE_PATH` must point into a persistent volume. A normal process restart preserves deduplication only if that volume remains attached.
 
@@ -212,7 +240,9 @@ Each item must have `title`, absolute `url`, and `platform`. Optional fields are
 - No tool can guarantee discovery of every hackathon on the internet.
 - Scrapers can break when providers change undocumented HTML or JSON.
 - X recent-search availability and cost depend on the owner's developer account.
-- This v1 has one private Telegram user, no reminders, and no filtering.
+- This v1 has one private Telegram owner. Crowding scores, export, organiser-account X watches, and
+  the Codex hand-off action remain planned.
+- Luma remains unavailable until a documented public feed or owner-authorized API is available.
 - Host-level backup and restore are not implemented; volume-loss recovery remains unverified.
 
 ## Documentation

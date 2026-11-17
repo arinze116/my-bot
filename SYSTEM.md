@@ -2,9 +2,9 @@
 
 ## Purpose and users
 
-- What it does: polls hackathon listings, normalises new entries, archives successful deliveries, and sends Telegram DMs.
-- Users: one owner — **1 TARGET**, supplied PRD dated 2026-11-16.
-- Main flow: scheduled poll -> parallel source reads -> validation -> deduplication -> immediate per-item Telegram send -> SQLite mark.
+- What it does: polls hackathon listings, merges source sightings into canonical events, applies owner preferences, and sends idempotent Telegram alerts and digests.
+- Users: one owner — **1 TARGET**, supplied PRD updated 2026-11-17.
+- Main flow: scheduled poll -> parallel source reads -> validation -> canonical merge -> filter and alert plan -> URL check -> Telegram delivery -> SQLite alert record.
 
 ## Load and data
 
@@ -25,8 +25,10 @@ The system has no inbound public endpoint and no request-per-second serving load
 | Data | Class | Why |
 |---|---|---|
 | `seen` notification records | CONSISTENT | duplicate prevention depends on it |
+| canonical events, sightings, and alerts | CONSISTENT | cross-source dedupe and material-change alerts depend on them |
+| owner preferences and mutes | CONSISTENT | private delivery control must survive restarts |
 | source listing content | EVENTUAL | upstream pages can change between polls |
-| startup/source status | EVENTUAL | informational only |
+| source health and startup status | EVENTUAL | informational and operational, not transactional |
 
 ## Rules
 
@@ -41,10 +43,15 @@ The system has no inbound public endpoint and no request-per-second serving load
 - **R-COMMAND-1:** Telegram commands are accepted only from the configured owner chat; command/API failures never stop scheduled polling; `/start` and `/grid` expose a native two-column command keyboard.
 - **R-PRESENTATION-1:** Telegram alerts lead with the opportunity, use human-readable dates and one semantic emoji per data type, omit empty fields, escape provider content, and include a direct one-tap action; command responses preserve intentional line breaks and stay within compact per-view density budgets.
 - **R-ARCHIVE-1:** successful deliveries retain their source URL for clickable recent views; existing SQLite databases migrate additively without losing legacy rows.
+- **R-CANONICAL-1:** matching URLs, or strongly similar titles with overlapping dates and a shared host, merge into one canonical event while retaining every sighting.
+- **R-URL-1:** canonical push alerts are suppressed when their registration/event URL does not resolve after HEAD with GET fallback.
+- **R-CONTROL-1:** only the owner chat can read or mutate filters, pause state, digest state, mutes, and interested flags; preferences reload before each poll cycle.
+- **R-HEALTH-1:** source success and failure streaks persist; three consecutive failures produce one owner warning, repeated at most daily until recovery.
+- **R-DIGEST-1:** ongoing events are grouped once per WAT day outside quiet hours; events alerted as New or Changed in the previous 24 hours are omitted.
 
 ## Architecture
 
-Python 3.11+ modular monolith running as one systemd-managed background worker. APScheduler triggers the orchestrator. Stateless source modules perform bounded reads in parallel. The orchestrator serialises delivery decisions through SQLite. A separate isolated thread long-polls the same project Telegram bot for owner-only commands. Telegram and X use their HTTP APIs directly to keep retry, timeout, and access behavior visible. X discovery uses seven high-signal queries plus `is_announcement()` before normalization. The command surface uses native HTML formatting and the archive retains URLs for clickable recent results. See ADR-0001, ADR-0002, ADR-0005, ADR-0006, ADR-0007, and ADR-0008.
+Python 3.11+ modular monolith running as one systemd-managed background worker. APScheduler triggers the orchestrator. Stateless source modules perform bounded reads in parallel. The additive SQLite event store owns canonical events, sightings, alert keys, source health, preferences, and quiet-hour queues while the legacy `seen` table remains for archive compatibility. The alert planner decides New, Material change, Deadline soon, and daily Ongoing digest delivery. A separate isolated thread long-polls the same project Telegram bot for owner-only commands and callbacks. Telegram and X use their HTTP APIs directly so retry, timeout, and access behavior remain visible. See ADR-0009.
 
 ## Known limits
 
@@ -52,5 +59,8 @@ Python 3.11+ modular monolith running as one systemd-managed background worker. 
 - Scraped or undocumented upstream contracts can change without notice. Parser fixtures prove known shapes, not future provider compatibility.
 - "Zero missed hackathons" across the public internet cannot be guaranteed. This worker covers enabled sources that remain accessible.
 - X recent search is relevance- and recency-limited; exact phrases, language filtering, API access, and a 100-result cap can still omit announcements.
+- Luma discovery is **UNAVAILABLE**: its official discover page does not expose query results server-side and its official client search endpoint requires a signed-in user. The bot does not bypass that control.
+- ETHGlobal uses its public official events HTML because the guessed `/api/events` route is 404; card markup can change.
+- Crowding scores, CSV/JSON export, organiser-account X watches, and Codex hand-off buttons remain planned rather than implemented.
 - Free-host availability and persistence depend on the provider plan and volume configuration.
 - Telegram permits only one active `getUpdates` consumer for a bot token; another poller or a webhook would conflict with the command thread.

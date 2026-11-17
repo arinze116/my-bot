@@ -9,6 +9,8 @@ from datetime import date
 import httpx
 
 from config import Settings
+from event_alerts import format_event_alert, format_ongoing_digest
+from event_model import CanonicalEvent
 from models import Hackathon
 
 TELEGRAM_MESSAGE_LIMIT = 4096
@@ -122,6 +124,47 @@ class TelegramClient:
             format_message(hackathon, include_link=False), reply_markup=reply_markup
         )
 
+    def send_event(
+        self,
+        event: CanonicalEvent,
+        *,
+        alert_type: str,
+        reasons: Sequence[str] = (),
+        changes: dict[str, tuple[str, str]] | None = None,
+    ) -> bool:
+        event_id = event["event_id"]
+        reply_markup = {
+            "inline_keyboard": [
+                [{"text": "Open ↗", "url": event["canonical_url"]}],
+                [
+                    {"text": "Mute", "callback_data": f"mute:{event_id}"},
+                    {"text": "Interested", "callback_data": f"interest:{event_id}"},
+                ],
+            ]
+        }
+        return self.send_text(
+            format_event_alert(
+                event,
+                alert_type=alert_type,
+                reasons=tuple(reasons),
+                changes=changes or {},
+            ),
+            reply_markup=reply_markup,
+            parse_mode="HTML",
+        )
+
+    def send_source_health(self, source: str, error_streak: int, error: str) -> bool:
+        text = (
+            "⚠️ <b>Source needs attention</b>\n"
+            f"<b>{_escape_html(source)}</b> failed {error_streak} consecutive sweeps.\n"
+            f"Last error: {_escape_html(_truncate(error, 300))}\n"
+            "Other sources are still running. Use /sources for coverage."
+        )
+        return self.send_text(text, parse_mode="HTML")
+
+    def send_digest(self, events: list[CanonicalEvent]) -> bool:
+        return self.send_text(format_ongoing_digest(events), parse_mode="HTML")
+
     def send_startup_message(self, total: int, active_sources: Sequence[str]) -> bool:
         source_count = len(active_sources)
         text = (
@@ -146,9 +189,15 @@ class TelegramClient:
         )
         return self.send_text(text)
 
-    def send_text(self, text: str, *, reply_markup: dict[str, object] | None = None) -> bool:
+    def send_text(
+        self,
+        text: str,
+        *,
+        reply_markup: dict[str, object] | None = None,
+        parse_mode: str = "Markdown",
+    ) -> bool:
         for attempt in range(1, self.settings.telegram_retry_attempts + 1):
-            outcome = self._send_once(text, reply_markup)
+            outcome = self._send_once(text, reply_markup, parse_mode)
             if outcome == "success":
                 return True
             if outcome == "permanent" or attempt == self.settings.telegram_retry_attempts:
@@ -160,12 +209,17 @@ class TelegramClient:
         if self._owns_client:
             self.client.close()
 
-    def _send_once(self, text: str, reply_markup: dict[str, object] | None) -> str:
+    def _send_once(
+        self,
+        text: str,
+        reply_markup: dict[str, object] | None,
+        parse_mode: str,
+    ) -> str:
         endpoint = f"https://api.telegram.org/bot{self.settings.telegram_bot_token}/sendMessage"
         payload = {
             "chat_id": self.settings.telegram_chat_id,
             "text": text,
-            "parse_mode": "Markdown",
+            "parse_mode": parse_mode,
             "disable_web_page_preview": True,
         }
         if reply_markup is not None:
@@ -205,6 +259,32 @@ class ConsoleNotifier:
         print(f"Source error [{source}]: {type(error).__name__}: {error}")
         return True
 
+    def send_event(
+        self,
+        event: CanonicalEvent,
+        *,
+        alert_type: str,
+        reasons: Sequence[str] = (),
+        changes: dict[str, tuple[str, str]] | None = None,
+    ) -> bool:
+        print(
+            format_event_alert(
+                event,
+                alert_type=alert_type,
+                reasons=tuple(reasons),
+                changes=changes or {},
+            )
+        )
+        return True
+
+    def send_source_health(self, source: str, error_streak: int, error: str) -> bool:
+        print(f"Source warning [{source}]: streak={error_streak}: {error}")
+        return True
+
+    def send_digest(self, events: list[CanonicalEvent]) -> bool:
+        print(format_ongoing_digest(events))
+        return True
+
     def close(self) -> None:
         return None
 
@@ -239,6 +319,10 @@ def _escape_markdown(value: str) -> str:
 
 def _escape_link_url(value: str) -> str:
     return value.replace("\\", "\\\\").replace(")", "\\)")
+
+
+def _escape_html(value: str) -> str:
+    return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
 def _truncate(value: str, limit: int) -> str:

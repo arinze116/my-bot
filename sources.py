@@ -4,7 +4,17 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from config import Settings
-from scrapers import devfolio, devpost, dorahacks, gitcoin, hackerearth, lablab, mlh, twitter
+from scrapers import (
+    devfolio,
+    devpost,
+    dorahacks,
+    ethglobal,
+    gitcoin,
+    hackerearth,
+    lablab,
+    mlh,
+    twitter,
+)
 
 FetchFunction = Callable[[], list[dict]]
 
@@ -21,6 +31,10 @@ def enabled_sources(settings: Settings) -> list[SourceSpec]:
         (settings.enabled_devpost, SourceSpec("devpost", "Devpost", devpost.fetch)),
         (settings.enabled_devfolio, SourceSpec("devfolio", "Devfolio", devfolio.fetch)),
         (settings.enabled_dorahacks, SourceSpec("dorahacks", "DoraHacks", dorahacks.fetch)),
+        (
+            settings.enabled_ethglobal,
+            SourceSpec("ethglobal", "ETHGlobal", ethglobal.fetch),
+        ),
         (settings.enabled_mlh, SourceSpec("mlh", "MLH", mlh.fetch)),
         (settings.enabled_lablab, SourceSpec("lablab", "Lablab.ai / Starfield Labs", lablab.fetch)),
         (

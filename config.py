@@ -38,6 +38,7 @@ class Settings:
     enabled_devpost: bool
     enabled_devfolio: bool
     enabled_dorahacks: bool
+    enabled_ethglobal: bool
     enabled_mlh: bool
     enabled_lablab: bool
     enabled_hackerearth: bool
@@ -55,7 +56,7 @@ class Settings:
         return cls(
             telegram_bot_token=_project_telegram_value(project_env, "TELEGRAM_BOT_TOKEN"),
             telegram_chat_id=_project_telegram_value(project_env, "TELEGRAM_CHAT_ID"),
-            bot_owner_name=os.getenv("BOT_OWNER_NAME", "Arinze").strip() or "Arinze",
+            bot_owner_name=os.getenv("BOT_OWNER_NAME", "Chinweuba").strip() or "Chinweuba",
             twitter_bearer_token=os.getenv("TWITTER_BEARER_TOKEN", "").strip(),
             twitter_queries=queries or DEFAULT_TWITTER_QUERIES,
             database_path=Path(os.getenv("DATABASE_PATH", "seen_hackathons.db")),
@@ -68,6 +69,7 @@ class Settings:
             enabled_devpost=_bool_env("ENABLE_DEVPOST", True),
             enabled_devfolio=_bool_env("ENABLE_DEVFOLIO", True),
             enabled_dorahacks=_bool_env("ENABLE_DORAHACKS", True),
+            enabled_ethglobal=_bool_env("ENABLE_ETHGLOBAL", True),
             enabled_mlh=_bool_env("ENABLE_MLH", True),
             enabled_lablab=_bool_env("ENABLE_LABLAB", True),
             enabled_hackerearth=_bool_env("ENABLE_HACKEREARTH", True),

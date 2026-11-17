@@ -3,7 +3,7 @@
 ## Product, audience, and job
 
 - **Product:** Hackathon Radar, a private opportunity-intelligence bot.
-- **Audience:** Arinze, checking Telegram from a phone or desktop client.
+- **Audience:** Chinweuba, checking Telegram from a phone or desktop client.
 - **Job:** surface enough verified detail to decide whether an opportunity deserves attention in
   seconds, then make status and archive checks effortless.
 
@@ -21,7 +21,10 @@ motion.
 
 | Emoji | Meaning |
 |---|---|
-| 🚨 | newly detected opportunity |
+| 🆕 | newly detected opportunity |
+| 🟢 | ongoing opportunities |
+| ⏰ | deadline within 72 or 24 hours |
+| 🔄 | material event change |
 | 💰 | prize or funding |
 | ⏳ | application deadline |
 | 🗓️ | event dates |
@@ -31,8 +34,10 @@ motion.
 | 🧰 | technical focus |
 | 📝 | opportunity brief |
 | 🔎 | discovery source |
-| 📡 | live worker pulse |
-| ✨ | newest archive entries |
+| 📡 | source health |
+| 🎯 | owner filters |
+| ⏯ | pause/resume push alerts |
+| 🌅 | daily ongoing digest |
 | 📈 | archive totals |
 | 🌐 | source coverage |
 | 🧭 | guidance or recovery |
@@ -42,15 +47,19 @@ motion.
 
 ```text
 ┌─────────────┬─────────────┐
-│ 📡 Pulse    │ ✨ Fresh    │
+│ 🆕 New      │ 🟢 Ongoing │
 ├─────────────┼─────────────┤
-│ 📈 Vault    │ 🌐 Coverage │
+│ ⏰ Soon     │ 🎯 Filters │
+├─────────────┼─────────────┤
+│ 📡 Sources  │ ⏯ Alerts  │
+├─────────────┼─────────────┤
+│ 🌅 Digest   │ 📈 Vault   │
 ├─────────────┼─────────────┤
 │ 🧭 Guide    │ ⌨️ Hide     │
 └─────────────┴─────────────┘
 ```
 
-- Layout: three rows and two native buttons per row.
+- Layout: five rows and two native buttons per row. Discovery comes first, controls second, recovery last.
 - Voice: personal and terse; one heading plus only the requested data.
 - Motion: none added. Telegram's native keyboard behavior is appropriate for a frequently used tool.
 - Principles: decision first; buttons carry navigation emojis while response bodies stay quiet;
@@ -61,30 +70,32 @@ motion.
 | View | Maximum meaningful lines |
 |---|---:|
 | Grid | 3 |
-| Pulse | 3 |
-| Fresh | 5 |
+| Status | 3 |
+| New / Ongoing / Soon | one linked event per line, default 10 |
+| Filters | 7 |
 | Vault | 7 |
-| Coverage | 3 |
+| Sources | one health row per observed source |
 | Guide | 6 |
 
-Fresh shows at most four linked opportunities. Vault shows at most five source rows plus one compact
-overflow row. Coverage groups four sources per line. Empty, hidden, and unknown-command states use
-two lines.
+Event lists keep one complete opportunity on one line rather than repeating multi-line mini-cards.
+Vault shows at most five source rows plus one compact overflow row. Empty, hidden, and
+unknown-command states use two lines.
 
 ## Alert hierarchy
 
-1. Radar hit and opportunity title.
-2. Decision fields: prize, deadline, dates, format, team, eligibility, focus.
-3. Short provider brief.
-4. Source provenance.
-5. One-tap `View opportunity ↗` action.
+1. Alert type and opportunity title.
+2. One facts line: dates, mode, prize.
+3. Verified tags and clearly labelled inferred signals.
+4. Filter-match explanation when owner filters are active.
+5. Source list and first-seen time in WAT.
+6. Native Open, Mute, and Interested actions.
 
 Empty optional fields disappear. Known ISO dates become day-month-year copy. Provider text remains
 escaped, and the Telegram button uses the validated absolute source URL.
 
 ## States
 
-- **Empty Fresh/Vault:** says the radar is active and what will populate the view.
+- **Empty New/Ongoing/Soon/Vault:** says nothing matches right now without implying source silence.
 - **Unknown command:** restores the desk and gives one recovery action.
 - **Hidden grid:** confirms alerts remain active and `/grid` restores controls.
 - **Source error:** identifies the degraded source while confirming other sources continue.

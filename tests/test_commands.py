@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 
 import httpx
 
 from commands import BOT_COMMANDS, GRID_MARKUP, TelegramCommandPoller
 from db import Database
+from event_model import canonicalize_hackathon
+from event_store import EventStore, Sighting
 
 
 def test_grid_uses_two_columns_and_persistent_keyboard() -> None:
@@ -13,8 +16,10 @@ def test_grid_uses_two_columns_and_persistent_keyboard() -> None:
 
     assert all(len(row) == 2 for row in rows)
     assert rows == [
-        ["📡 Pulse", "✨ Fresh"],
-        ["📈 Vault", "🌐 Coverage"],
+        ["🆕 New", "🟢 Ongoing"],
+        ["⏰ Soon", "🎯 Filters"],
+        ["📡 Sources", "⏯ Alerts"],
+        ["🌅 Digest", "📈 Vault"],
         ["🧭 Guide", "⌨️ Hide"],
     ]
     assert GRID_MARKUP["resize_keyboard"] is True
@@ -128,7 +133,7 @@ def test_command_outputs_stay_within_compact_line_budgets(settings_factory) -> N
         "/latest": 5,
         "/stats": 7,
         "/sources": 3,
-        "/help": 6,
+        "/help": 7,
     }
     for command, budget in budgets.items():
         text, _, _ = poller._response_for(command)
@@ -192,3 +197,119 @@ def test_profile_photo_upload_uses_static_jpg_attachment(settings_factory, tmp_p
     assert "multipart/form-data" in requests[0].headers["content-type"]
     assert b'"type":"static"' in requests[0].content
     assert b"attach://avatar" in requests[0].content
+
+
+def test_event_views_use_canonical_store_and_keep_one_event_per_line(settings_factory) -> None:
+    settings = settings_factory()
+    database = Database(settings.database_path)
+    database.init()
+    store = EventStore(settings.database_path)
+    store.init()
+    event = canonicalize_hackathon(
+        {
+            "title": "Africa AI Sprint",
+            "url": "https://example.com/africa-ai",
+            "platform": "DoraHacks",
+            "start_date": "2026-11-16",
+            "end_date": "2026-11-20",
+            "deadline": "2026-11-18",
+            "mode": "Online",
+        },
+        now=datetime(2026, 11, 17, 12, tzinfo=UTC),
+    )
+    store.upsert_event(
+        event,
+        Sighting("DoraHacks", event["canonical_url"], "2026-11-17T12:00:00+00:00"),
+    )
+    poller = TelegramCommandPoller(
+        settings,
+        database,
+        ("DoraHacks",),
+        event_store=store,
+        clock=lambda: datetime(2026, 11, 17, 12, tzinfo=UTC),
+        client=httpx.Client(transport=httpx.MockTransport(lambda request: None)),
+    )
+
+    new_text, _, _ = poller._response_for("/new")
+    ongoing_text, _, _ = poller._response_for("/ongoing")
+    soon_text, _, _ = poller._response_for("/soon")
+
+    assert new_text.startswith("<b>New · 1</b>")
+    assert ongoing_text.startswith("<b>Ongoing · 1</b>")
+    assert soon_text.startswith("<b>Due soon · 1</b>")
+    assert all(text.count("Africa AI Sprint") == 1 for text in (new_text, ongoing_text, soon_text))
+
+
+def test_owner_controls_pause_resume_digest_and_filters(settings_factory) -> None:
+    settings = settings_factory()
+    database = Database(settings.database_path)
+    database.init()
+    store = EventStore(settings.database_path)
+    store.init()
+    poller = TelegramCommandPoller(
+        settings,
+        database,
+        ("Devpost",),
+        event_store=store,
+        client=httpx.Client(transport=httpx.MockTransport(lambda request: None)),
+    )
+
+    pause_text, _, _ = poller._response_for("/pause")
+    assert pause_text == "<b>Alerts paused</b>\nScanning continues. Push delivery is off."
+    assert store.load_preferences()["paused"] is True
+
+    digest_text, _, _ = poller._response_for("/digest off")
+    assert digest_text == "<b>Digest off</b>\nNew and deadline alerts stay instant."
+    assert store.load_preferences()["digest_enabled"] is False
+
+    filter_text, _, _ = poller._response_for("/filters region africa,global")
+    assert "Regions · Africa, Global" in filter_text
+    assert store.load_preferences()["regions"] == ["africa", "global"]
+
+    source_text, _, _ = poller._response_for("/mute Devpost")
+    assert source_text == "<b>Source muted</b>\nDevpost will no longer alert."
+    assert store.load_preferences()["muted_sources"] == ["devpost"]
+
+    resume_text, _, _ = poller._response_for("/resume")
+    assert resume_text == "<b>Alerts resumed</b>\nNew matches will arrive instantly."
+    assert store.load_preferences()["paused"] is False
+
+
+def test_callback_actions_are_owner_locked_and_persist(settings_factory) -> None:
+    payloads: list[tuple[str, dict]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payloads.append((request.url.path.rsplit("/", 1)[-1], json.loads(request.content)))
+        return httpx.Response(200, json={"ok": True, "result": True}, request=request)
+
+    settings = settings_factory()
+    database = Database(settings.database_path)
+    database.init()
+    store = EventStore(settings.database_path)
+    store.init()
+    event = canonicalize_hackathon(
+        {"title": "Builders Hack", "url": "https://example.com/build", "platform": "Devpost"}
+    )
+    store.upsert_event(event, Sighting("Devpost", event["canonical_url"], event["listed_at"]))
+    poller = TelegramCommandPoller(
+        settings,
+        database,
+        ("Devpost",),
+        event_store=store,
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+
+    assert poller.handle_update(
+        {
+            "callback_query": {
+                "id": "callback-1",
+                "data": "interest:" + event["event_id"],
+                "message": {"chat": {"id": int(settings.telegram_chat_id)}},
+            }
+        }
+    )
+    assert store.get_event_state(event["event_id"])["interested"] is True
+    assert payloads[-1] == (
+        "answerCallbackQuery",
+        {"callback_query_id": "callback-1", "text": "Saved as interested"},
+    )

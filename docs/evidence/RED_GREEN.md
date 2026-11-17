@@ -195,3 +195,78 @@ The faults below were temporarily injected into production code, observed by the
 - GREEN excerpt: `3 passed`.
 - Full-suite GREEN command: `.venv/bin/ruff check . && .venv/bin/python -m pytest -q`.
 - Full-suite GREEN excerpt: Ruff `All checks passed!`; pytest `49 passed`.
+
+## R-CANONICAL-1, R-URL-1, R-CONTROL-1, and R-HEALTH-1 — canonical PRD pipeline
+
+- Tests: canonical model/store/planner/URL suites plus cross-source aggregator integration.
+- Fault: the modules and runtime contracts did not exist.
+- RED excerpt: test collection stopped with `ModuleNotFoundError` for `event_model`, `event_store`,
+  `alert_planner`, and `url_verifier`.
+- GREEN excerpt: the first architecture slice reported `13 passed`; store extensions reported
+  `2 passed`; aggregator integration reported `3 passed`.
+- Limits proved: two-source merge, material change, quiet-hour queue, dead-URL suppression, source
+  warning throttle, persistent preferences, mutes, interests, and command queries.
+
+## R-PRESENTATION-1 — canonical event cards and native owner actions
+
+- Tests: `test_event_alert_is_compact_actionable_and_provenanced`,
+  `test_material_change_alert_shows_only_changed_field`, and
+  `test_send_event_adds_open_mute_and_interested_actions`.
+- Fault: `event_alerts.py` did not exist and `TelegramClient` had no canonical event sender.
+- RED excerpt: collection failed with `ModuleNotFoundError: No module named 'event_alerts'`.
+- GREEN command: `.venv/bin/python -m pytest -q tests/test_event_alerts.py tests/test_event_model.py tests/test_bot.py`.
+- GREEN excerpt: `18 passed`.
+
+## R-CONTROL-1 — owner views, controls, callbacks, and live preference reload
+
+- Tests: `test_saved_pause_preference_is_reloaded_before_each_cycle`, expanded command-grid tests,
+  canonical New/Ongoing/Soon views, filter/pause/digest persistence, and callback actions.
+- Faults: the planner retained startup preferences; the poller had no `EventStore`; the old grid
+  exposed only Pulse/Fresh/Vault/Coverage; callback queries were ignored.
+- RED excerpt: `5 failed`; one cycle sent despite saved pause, grid rows differed, and three tests
+  raised `TypeError: TelegramCommandPoller.__init__() got an unexpected keyword argument
+  'event_store'`.
+- GREEN command: `.venv/bin/python -m pytest -q tests/test_aggregator.py::test_saved_pause_preference_is_reloaded_before_each_cycle tests/test_commands.py`.
+- GREEN excerpt: `11 passed`.
+
+## R-RUNTIME-1 — production canonical pipeline wiring
+
+- Tests: `test_production_runtime_wires_canonical_pipeline` and
+  `test_dry_run_runtime_keeps_legacy_non_mutating_pipeline`.
+- Fault: `main.py` had no runtime builder and never created the canonical store, planner, or URL
+  verifier.
+- RED excerpt: collection failed with `ImportError: cannot import name 'build_runtime' from 'main'`.
+- GREEN excerpt: `2 passed`; the production runtime owns all three components and dry-run owns none.
+
+## Source contract — ETHGlobal official events
+
+- Test: `test_ethglobal_event_card_parser_keeps_hackathons_only`.
+- Fault: no ETHGlobal adapter existed.
+- RED excerpt: collection failed with `ImportError: cannot import name 'ethglobal' from 'scrapers'`.
+- GREEN excerpt: the parser test passed and the source was added behind `ENABLE_ETHGLOBAL`.
+- Research evidence: official `/events` returned public cards; guessed `/api/events` returned 404.
+  Luma official client search returned 401 unsigned and was documented unavailable.
+
+## R-DIGEST-1 — daily ongoing digest without same-day duplicate spam
+
+- Tests: `test_ongoing_digest_is_sent_once_per_wat_day`,
+  `test_send_digest_groups_ongoing_events_in_one_message`, and
+  `test_new_ongoing_event_is_not_repeated_in_same_day_digest`.
+- Faults: `/digest` only persisted a switch; `TelegramClient.send_digest()` did not exist; a newly
+  alerted ongoing event then produced two messages in the same cycle.
+- RED excerpts: `AttributeError: 'TelegramClient' object has no attribute 'send_digest'`; the
+  duplicate regression showed `assert 2 == 1` for sent messages.
+- GREEN excerpts: digest slice `7 passed`; same-day New/digest regressions `2 passed`.
+
+## R-DELIVERY-1 — canonical delivery exception isolation
+
+- Test: `test_canonical_delivery_exception_is_isolated_and_not_recorded`.
+- Fault: a `ValueError` raised by canonical message delivery escaped `run_cycle()`.
+- RED excerpt: traceback ended at `raise ValueError("bad canonical message")`.
+- GREEN excerpt: the focused canonical delivery and digest regressions reported `3 passed`; the
+  failed event retained no New alert key.
+
+## Current-revision full gate
+
+- Command: `make ci`.
+- GREEN excerpt: Ruff `All checks passed!`; pytest `84 passed in 2.82s`.

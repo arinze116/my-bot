@@ -2,17 +2,31 @@ from __future__ import annotations
 
 import argparse
 import logging
-from dataclasses import replace
+from dataclasses import dataclass, replace
 
 from aggregator import RadarService
+from alert_planner import AlertPlanner, preferences_from_mapping
 from bot import ConsoleNotifier, TelegramClient
 from commands import TelegramCommandPoller
 from config import Settings
 from db import Database
+from event_store import EventStore
 from scheduler import run_scheduler
-from sources import enabled_sources
+from sources import SourceSpec, enabled_sources
+from url_verifier import URLVerifier
 
 LOGGER = logging.getLogger(__name__)
+
+
+@dataclass(slots=True)
+class Runtime:
+    service: RadarService
+    event_store: EventStore | None = None
+    url_verifier: URLVerifier | None = None
+
+    def close(self) -> None:
+        if self.url_verifier is not None:
+            self.url_verifier.close()
 
 
 def main() -> int:
@@ -28,7 +42,14 @@ def main() -> int:
     database.init()
     source_specs = enabled_sources(settings)
     notifier = ConsoleNotifier() if args.dry_run else TelegramClient(settings)
-    service = RadarService(settings, database, notifier, source_specs, dry_run=args.dry_run)
+    runtime = build_runtime(
+        settings,
+        database,
+        notifier,
+        source_specs,
+        dry_run=args.dry_run,
+    )
+    service = runtime.service
     command_poller: TelegramCommandPoller | None = None
 
     try:
@@ -43,6 +64,7 @@ def main() -> int:
                 settings,
                 database,
                 [source.display_name for source in source_specs],
+                event_store=runtime.event_store,
             )
             command_poller.start()
         LOGGER.info("Starting %s-minute scheduler", settings.poll_interval_minutes)
@@ -52,8 +74,43 @@ def main() -> int:
     finally:
         if command_poller:
             command_poller.stop()
+        runtime.close()
         notifier.close()
     return 0
+
+
+def build_runtime(
+    settings: Settings,
+    database: Database,
+    notifier: ConsoleNotifier | TelegramClient,
+    source_specs: list[SourceSpec],
+    *,
+    dry_run: bool,
+) -> Runtime:
+    if dry_run:
+        return Runtime(
+            RadarService(
+                settings,
+                database,
+                notifier,
+                source_specs,
+                dry_run=True,
+            )
+        )
+    event_store = EventStore(settings.database_path)
+    event_store.init()
+    planner = AlertPlanner(preferences_from_mapping(event_store.load_preferences()))
+    verifier = URLVerifier(timeout_seconds=settings.http_timeout_seconds)
+    service = RadarService(
+        settings,
+        database,
+        notifier,
+        source_specs,
+        event_store=event_store,
+        planner=planner,
+        url_verifier=verifier,
+    )
+    return Runtime(service, event_store, verifier)
 
 
 def _parse_args() -> argparse.Namespace:

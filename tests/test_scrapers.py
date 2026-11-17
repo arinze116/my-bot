@@ -3,7 +3,17 @@ from __future__ import annotations
 import json
 
 from config import DEFAULT_TWITTER_QUERIES
-from scrapers import devfolio, devpost, dorahacks, gitcoin, hackerearth, lablab, mlh, twitter
+from scrapers import (
+    devfolio,
+    devpost,
+    dorahacks,
+    ethglobal,
+    gitcoin,
+    hackerearth,
+    lablab,
+    mlh,
+    twitter,
+)
 
 
 def test_devpost_item_normalization() -> None:
@@ -210,3 +220,36 @@ def test_twitter_fetch_filters_requested_noise() -> None:
     items = twitter._fetch_queries(FakeClient(), token="", queries=("hackathon",))
 
     assert [item["title"] for item in items] == ["Applications open for our Lagos hackathon"]
+
+
+def test_ethglobal_event_card_parser_keeps_hackathons_only() -> None:
+    html = """
+    <a href="/events/cannes2027">
+      <div>April</div><span>14</span><span>16</span>
+      <h2>ETHGlobal Cannes 2027</h2>
+      <span>Cannes, France</span><span>IRL Hackathon</span>
+      <div>Apply to Attend</div>
+    </a>
+    <a href="/events/pragma-cannes2027">
+      <div>April</div><span>15</span>
+      <h2>Pragma Cannes 2027</h2><span>Conference</span>
+    </a>
+    """
+
+    items = ethglobal.parse_html(html)
+
+    assert items == [
+        {
+            "title": "ETHGlobal Cannes 2027",
+            "url": "https://ethglobal.com/events/cannes2027",
+            "platform": "ETHGlobal",
+            "start_date": "2027-04-14",
+            "end_date": "2027-04-16",
+            "mode": "In-person",
+            "tech_tags": "Web3, Ethereum",
+            "description": (
+                "April 14 16 ETHGlobal Cannes 2027 Cannes, France "
+                "IRL Hackathon Apply to Attend"
+            ),
+        }
+    ]

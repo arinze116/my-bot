@@ -6,6 +6,7 @@ import logging
 import httpx
 
 from bot import TELEGRAM_MESSAGE_LIMIT, TelegramClient, format_message
+from event_model import canonicalize_hackathon
 
 HACKATHON = {
     "title": "AI_[Builders] Hack",
@@ -146,6 +147,68 @@ def test_startup_message_is_personal_and_actionable(settings_factory) -> None:
     assert "Arinze, your opportunity watch is active." in payloads[0]["text"]
     assert "*Coverage:* 2 sources" in payloads[0]["text"]
     assert "Use /grid" in payloads[0]["text"]
+
+
+def test_send_event_adds_open_mute_and_interested_actions(settings_factory) -> None:
+    payloads: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payloads.append(json.loads(request.content))
+        return httpx.Response(200, json={"ok": True}, request=request)
+
+    event = canonicalize_hackathon(
+        {
+            "title": "Builders Hack",
+            "url": "https://example.com/build",
+            "platform": "Devpost",
+        }
+    )
+    client = TelegramClient(
+        settings_factory(),
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+
+    assert client.send_event(event, alert_type="new", reasons=(), changes={}) is True
+    assert payloads[0]["parse_mode"] == "HTML"
+    assert payloads[0]["reply_markup"] == {
+        "inline_keyboard": [
+            [{"text": "Open ↗", "url": "https://example.com/build"}],
+            [
+                {"text": "Mute", "callback_data": "mute:" + event["event_id"]},
+                {
+                    "text": "Interested",
+                    "callback_data": "interest:" + event["event_id"],
+                },
+            ],
+        ]
+    }
+
+
+def test_send_digest_groups_ongoing_events_in_one_message(settings_factory) -> None:
+    payloads: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payloads.append(json.loads(request.content))
+        return httpx.Response(200, json={"ok": True}, request=request)
+
+    event = canonicalize_hackathon(
+        {
+            "title": "Open Builders Week",
+            "url": "https://example.com/open-builders",
+            "platform": "Example",
+            "deadline": "2026-11-19",
+            "mode": "Online",
+        }
+    )
+    client = TelegramClient(
+        settings_factory(),
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+
+    assert client.send_digest([event]) is True
+    assert payloads[0]["parse_mode"] == "HTML"
+    assert payloads[0]["text"].startswith("🟢 <b>Ongoing radar · 1</b>")
+    assert 'href="https://example.com/open-builders"' in payloads[0]["text"]
 
 
 def test_send_retries_three_times_then_stops(settings_factory) -> None:

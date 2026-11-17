@@ -26,6 +26,7 @@ def settings_factory(tmp_path: Path):
             "enabled_devpost": True,
             "enabled_devfolio": True,
             "enabled_dorahacks": True,
+            "enabled_ethglobal": True,
             "enabled_mlh": True,
             "enabled_lablab": True,
             "enabled_hackerearth": True,
