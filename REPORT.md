@@ -1,3 +1,78 @@
+# Completion report — persistent Telegram bookmarks
+
+Date: 2026-11-17 (Africa/Lagos)
+Branch: `feat/hackathon-radar-v1`
+
+## Requested
+
+Add owner-only hackathon bookmarks that can be added, listed from a clickable Telegram command,
+and removed without deleting the archived event.
+
+## Implemented
+
+- Reused the deployed `events.interested` flag as the bookmark state, preserving existing saved
+  events without a destructive migration.
+- Added Bookmark actions to canonical alerts and retained legacy `interest:` callback support.
+- Added a Bookmarks grid button plus `/bookmarks`, `/bookmark <event id or URL>`, and
+  `/unbookmark <event id or URL>`.
+- Added inline Remove actions that persist the change and refresh the bookmark list in place.
+- Kept all bookmark reads and mutations restricted to the configured owner chat.
+- Updated `SYSTEM.md`, `MODULES.md`, ADR-0010, the command UX contract, README, requirements status,
+  changelog, and RED/GREEN evidence.
+
+## Tested
+
+| Command | Status | Current-revision evidence |
+|---|---|---|
+| focused bookmark safeguards | passed | `5 passed` after injected storage/grid/label faults produced `5 failed` |
+| owner callback lock | passed | `1 passed` after removing the chat-id guard produced `assert not True` |
+| `make ci` | passed | Ruff: `All checks passed!`; pytest: `87 passed` |
+| `git diff --check` | passed | no whitespace errors |
+| Telegram callback size check | passed | Bookmark payload 49 bytes; Unbookmark payload 51 bytes; official limit 64 bytes |
+| Git push | passed | commit `3128ddf` pushed to `origin/feat/hackathon-radar-v1` |
+| systemd deployment | passed | PID `2374651`; active/running; `NRestarts=0` after restart |
+| first production cycle | passed | `fetched=93`, `sent=0`, `source_errors=0`; job executed successfully |
+
+## Passed
+
+- Persistent add, reload, list, remove, legacy callback compatibility, inline refresh, and owner
+  authorization tests.
+- Full lint and regression suite.
+- Full diff review, including the new ADR.
+- Feature commit pushed and the live systemd worker restarted successfully.
+- The first scheduled production cycle completed without source errors or duplicate delivery.
+
+## Failed
+
+- No current-revision check failed after restoration.
+
+## Incomplete
+
+- Authenticated Telegram client screenshots were not captured.
+
+## Not verified
+
+- A live Bookmark/Remove tap was not performed; persistence, callback payloads, owner authorization,
+  and list refresh behavior are covered by automated tests.
+
+## Scorecard evidence
+
+| Criterion | Evidence |
+|---|---|
+| Engineering | SQLite persistence tests, owner-lock regression, RED/GREEN evidence, `make ci`, `SYSTEM.md`, `MODULES.md`, ADR-0010. |
+| Design | `docs/telegram-command-ui.md` defines the grid, empty state, removal state, density, and Telegram-native interaction; authenticated client screenshots remain unavailable. |
+| Branding | Bookmark copy and the 🔖 semantic action follow the existing Hackathon Radar voice and emoji vocabulary. |
+| Video | Not applicable: no video artefact was requested. |
+| Research | Official Telegram Bot API verified the 1–64 byte callback-data limit; generated payloads are 49/51 bytes. |
+| Productivity | The feature reuses the existing one-bit event state and avoids a duplicate table or migration. |
+| Memory | Organisation context and the deployed canonical baseline were retrieved before implementation; the local-only bookmark record is superseded after deployment and memory lint reports 0 errors. |
+
+## Next step
+
+Optionally confirm the Bookmarks and Remove buttons visually in the authenticated Telegram client.
+
+---
+
 # Completion report — Hackathon Radar v1
 
 Date: 2026-11-17 (Africa/Lagos)
