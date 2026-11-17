@@ -269,4 +269,13 @@ The faults below were temporarily injected into production code, observed by the
 ## Current-revision full gate
 
 - Command: `make ci`.
-- GREEN excerpt: Ruff `All checks passed!`; pytest `84 passed in 2.82s`.
+- GREEN excerpt: Ruff `All checks passed!`; pytest `85 passed in 2.78s`.
+
+## R-COMMAND-1 — startup does not reapply rate-limited customization
+
+- Test: `test_start_does_not_reapply_rate_limited_bot_customization`.
+- Fault: every service restart called `setMyName`, `setMyDescription`, `setMyShortDescription`, and
+  `setMyCommands` again. Telegram returned HTTP 429 with a long retry window.
+- RED excerpt: `assert 1 == 0` because `customize_bot()` ran during `start()`.
+- GREEN excerpt: focused test `1 passed`; customization remains available through
+  `.venv/bin/python -m scripts.customize_bot` as an explicit one-off operation.

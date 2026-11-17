@@ -199,6 +199,35 @@ def test_profile_photo_upload_uses_static_jpg_attachment(settings_factory, tmp_p
     assert b"attach://avatar" in requests[0].content
 
 
+def test_start_does_not_reapply_rate_limited_bot_customization(
+    settings_factory, monkeypatch
+) -> None:
+    settings = settings_factory()
+    database = Database(settings.database_path)
+    database.init()
+    poller = TelegramCommandPoller(
+        settings,
+        database,
+        ("Devpost",),
+        client=httpx.Client(transport=httpx.MockTransport(lambda request: None)),
+    )
+    customization_calls = 0
+
+    def customize() -> bool:
+        nonlocal customization_calls
+        customization_calls += 1
+        return True
+
+    monkeypatch.setattr(poller, "customize_bot", customize)
+    monkeypatch.setattr(poller, "_prime_offset", lambda: None)
+    monkeypatch.setattr(poller, "_poll_loop", lambda: None)
+
+    poller.start()
+    poller.stop()
+
+    assert customization_calls == 0
+
+
 def test_event_views_use_canonical_store_and_keep_one_event_per_line(settings_factory) -> None:
     settings = settings_factory()
     database = Database(settings.database_path)

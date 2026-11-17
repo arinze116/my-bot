@@ -119,8 +119,6 @@ class TelegramCommandPoller:
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
             return
-        if not self.customize_bot():
-            LOGGER.warning("Telegram bot customization was only partially applied")
         self._prime_offset()
         self._stop.clear()
         self._thread = threading.Thread(
