@@ -25,6 +25,18 @@ class UpsertResult:
     material_changes: dict[str, tuple[str, str]] = field(default_factory=dict)
 
 
+@dataclass(frozen=True, slots=True)
+class RuntimeStatus:
+    started_at: str = ""
+    completed_at: str = ""
+    outcome: str = "never"
+    fetched: int = 0
+    sent: int = 0
+    source_errors: int = 0
+    delivery_failures: int = 0
+    last_error: str = ""
+
+
 class EventStore:
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path)
@@ -35,6 +47,9 @@ class EventStore:
             connection.executescript(_SCHEMA)
             connection.execute(
                 "INSERT OR IGNORE INTO user_prefs (id, prefs_json) VALUES (1, '{}')"
+            )
+            connection.execute(
+                "INSERT OR IGNORE INTO runtime_status (id, outcome) VALUES (1, 'never')"
             )
 
     def upsert_event(self, event: CanonicalEvent, sighting: Sighting) -> UpsertResult:
@@ -167,6 +182,83 @@ class EventStore:
         with self._connect() as connection:
             row = connection.execute("SELECT prefs_json FROM user_prefs WHERE id = 1").fetchone()
         return dict(json.loads(str(row[0]))) if row else {}
+
+    def begin_cycle(self, started_at: datetime) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                "UPDATE runtime_status SET started_at = ?, completed_at = '', "
+                "outcome = 'running', fetched = 0, sent = 0, source_errors = 0, "
+                "delivery_failures = 0, last_error = '' WHERE id = 1",
+                (_timestamp(started_at),),
+            )
+
+    def complete_cycle(
+        self,
+        *,
+        fetched: int,
+        sent: int,
+        source_errors: int,
+        delivery_failures: int,
+        completed_at: datetime,
+    ) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                "UPDATE runtime_status SET completed_at = ?, outcome = 'success', "
+                "fetched = ?, sent = ?, source_errors = ?, delivery_failures = ?, "
+                "last_error = '' WHERE id = 1",
+                (
+                    _timestamp(completed_at),
+                    fetched,
+                    sent,
+                    source_errors,
+                    delivery_failures,
+                ),
+            )
+
+    def fail_cycle(
+        self,
+        error: str,
+        *,
+        completed_at: datetime,
+        fetched: int = 0,
+        sent: int = 0,
+        source_errors: int = 0,
+        delivery_failures: int = 0,
+    ) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                "UPDATE runtime_status SET completed_at = ?, outcome = 'failed', "
+                "fetched = ?, sent = ?, source_errors = ?, delivery_failures = ?, "
+                "last_error = ? WHERE id = 1",
+                (
+                    _timestamp(completed_at),
+                    fetched,
+                    sent,
+                    source_errors,
+                    delivery_failures,
+                    error[:200],
+                ),
+            )
+
+    def get_runtime_status(self) -> RuntimeStatus:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT started_at, completed_at, outcome, fetched, sent, "
+                "source_errors, delivery_failures, last_error "
+                "FROM runtime_status WHERE id = 1"
+            ).fetchone()
+        if row is None:
+            return RuntimeStatus()
+        return RuntimeStatus(
+            started_at=str(row[0]),
+            completed_at=str(row[1]),
+            outcome=str(row[2]),
+            fetched=int(row[3]),
+            sent=int(row[4]),
+            source_errors=int(row[5]),
+            delivery_failures=int(row[6]),
+            last_error=str(row[7]),
+        )
 
     def queue_alert(
         self,
@@ -561,5 +653,16 @@ CREATE TABLE IF NOT EXISTS queued_alerts (
     alert_type TEXT NOT NULL,
     deliver_at TEXT NOT NULL,
     payload_json TEXT NOT NULL DEFAULT '{}'
+);
+CREATE TABLE IF NOT EXISTS runtime_status (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    started_at TEXT NOT NULL DEFAULT '',
+    completed_at TEXT NOT NULL DEFAULT '',
+    outcome TEXT NOT NULL DEFAULT 'never',
+    fetched INTEGER NOT NULL DEFAULT 0,
+    sent INTEGER NOT NULL DEFAULT 0,
+    source_errors INTEGER NOT NULL DEFAULT 0,
+    delivery_failures INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT NOT NULL DEFAULT ''
 );
 """

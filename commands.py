@@ -212,6 +212,37 @@ class TelegramCommandPoller:
         )
 
     def _status_text(self) -> str:
+        if self.event_store is not None:
+            status = self.event_store.get_runtime_status()
+            if status.outcome != "never":
+                observed_at = status.completed_at or status.started_at
+                when = _relative_age(observed_at, self.clock())
+                state = {
+                    "success": "Last scan",
+                    "running": "Scan running",
+                    "failed": "Last scan failed",
+                }.get(status.outcome, "Last scan unknown")
+                detail = (
+                    status.last_error
+                    if status.outcome == "failed" and status.last_error
+                    else f"{status.fetched} found"
+                )
+                health = self.event_store.list_source_health()
+                healthy = sum(int(item["error_streak"]) == 0 for item in health)
+                failed = sum(int(item["error_streak"]) > 0 for item in health)
+                source_count = len(self.active_sources)
+                failure_text = f" · {failed} failed" if failed else ""
+                delivery_label = "delivery" if status.delivery_failures == 1 else "deliveries"
+                delivery_text = (
+                    f" · {status.delivery_failures} {delivery_label} failed"
+                    if status.delivery_failures
+                    else ""
+                )
+                return (
+                    "<b>Radar status</b>\n"
+                    f"{state} · {when} · {detail}\n"
+                    f"Sources · {healthy}/{source_count} healthy{failure_text}{delivery_text}"
+                )
         total = self.database.total_seen()
         source_count = len(self.active_sources)
         return (
@@ -639,6 +670,24 @@ def _short_date(value: str) -> str:
     except ValueError:
         return ""
     return f"{parsed.day} {parsed.strftime('%b')}"
+
+
+def _relative_age(value: str, now: datetime) -> str:
+    try:
+        observed = datetime.fromisoformat(value)
+    except ValueError:
+        return "time unknown"
+    if observed.tzinfo is None:
+        observed = observed.replace(tzinfo=UTC)
+    current = now if now.tzinfo else now.replace(tzinfo=UTC)
+    seconds = max(0, int((current.astimezone(UTC) - observed.astimezone(UTC)).total_seconds()))
+    if seconds < 60:
+        return "just now"
+    minutes = seconds // 60
+    if minutes < 60:
+        return f"{minutes} min ago"
+    hours = minutes // 60
+    return f"{hours} {_plural(hours, 'hour')} ago"
 
 
 def _domain(value: str) -> str:

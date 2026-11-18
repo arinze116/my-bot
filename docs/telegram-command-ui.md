@@ -84,6 +84,10 @@ Event lists keep one complete opportunity on one line rather than repeating mult
 Vault shows at most five source rows plus one compact overflow row. Empty, hidden, and
 unknown-command states use two lines.
 
+`/status` uses the persisted polling outcome. It reports when the latest cycle completed or failed,
+the number of items fetched, delivery failures, and the current healthy-source count. It does not
+infer health from the command thread being reachable.
+
 ## Alert hierarchy
 
 1. Alert type and opportunity title.

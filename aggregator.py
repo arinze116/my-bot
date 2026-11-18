@@ -23,6 +23,10 @@ from sources import SourceSpec
 LOGGER = logging.getLogger(__name__)
 
 
+class EmptySourceResultError(RuntimeError):
+    pass
+
+
 class Notifier(Protocol):
     def send_hackathon(self, hackathon: Hackathon) -> bool: ...
 
@@ -92,6 +96,38 @@ class RadarService:
     def run_cycle(self) -> CycleReport:
         report = CycleReport()
         now = self.clock()
+        if self.event_store:
+            self.event_store.begin_cycle(now)
+        try:
+            self._run_cycle(report, now)
+        except Exception as error:
+            if self.event_store:
+                try:
+                    self.event_store.fail_cycle(
+                        type(error).__name__,
+                        completed_at=self.clock(),
+                        fetched=report.fetched,
+                        sent=report.sent,
+                        source_errors=len(report.source_errors),
+                        delivery_failures=report.delivery_failures,
+                    )
+                except Exception as status_error:
+                    LOGGER.error(
+                        "Cycle-status failure could not be recorded: %s",
+                        type(status_error).__name__,
+                    )
+            raise
+        if self.event_store:
+            self.event_store.complete_cycle(
+                fetched=report.fetched,
+                sent=report.sent,
+                source_errors=len(report.source_errors),
+                delivery_failures=report.delivery_failures,
+                completed_at=self.clock(),
+            )
+        return report
+
+    def _run_cycle(self, report: CycleReport, now: datetime) -> None:
         if self.event_store and self.planner:
             self.planner.preferences = preferences_from_mapping(
                 self.event_store.load_preferences()
@@ -99,6 +135,12 @@ class RadarService:
             self._flush_due_alerts(report, now)
         for batch in self._fetch_batches():
             if batch.error:
+                self._record_source_error(report, batch, now)
+                continue
+            if not batch.hackathons and not batch.source.empty_result_is_valid:
+                batch.error = EmptySourceResultError(
+                    "Source returned zero items where catalog results are expected"
+                )
                 self._record_source_error(report, batch, now)
                 continue
             report.fetched += len(batch.hackathons)
@@ -123,7 +165,6 @@ class RadarService:
             report.suppressed,
             len(report.source_errors),
         )
-        return report
 
     def _fetch_batches(self) -> list[SourceBatch]:
         if not self.sources:
@@ -255,6 +296,9 @@ class RadarService:
         if self.event_store.has_alert(plan.alert_key):
             report.skipped += 1
             return
+        if not self._event_allowed_now(event):
+            report.suppressed += 1
+            return
         if plan.deliver_at > now.astimezone(UTC):
             queued = self.event_store.queue_alert(
                 alert_key=plan.alert_key,
@@ -300,6 +344,10 @@ class RadarService:
             return
         for queued in self.event_store.list_due_alerts(now=now):
             event = self.event_store.get_event(queued["event_id"])
+            if not self._event_allowed_now(event):
+                self.event_store.remove_queued_alert(str(queued["alert_key"]))
+                report.suppressed += 1
+                continue
             if queued["alert_type"] == "deadline_soon" and self.event_store.was_recently_alerted(
                 event["event_id"], since=now - timedelta(hours=24)
             ):
@@ -316,6 +364,13 @@ class RadarService:
             self._handle_plan(event, None, plan, report, now)
             if report.sent > before or self.event_store.has_alert(plan.alert_key):
                 self.event_store.remove_queued_alert(plan.alert_key)
+
+    def _event_allowed_now(self, event: CanonicalEvent) -> bool:
+        assert self.event_store is not None
+        assert self.planner is not None
+        if self.event_store.get_event_state(event["event_id"])["muted"]:
+            return False
+        return event_matches_filters(event, self.planner.preferences).matches
 
     def _plan_deadlines(self, report: CycleReport, now: datetime) -> None:
         assert self.event_store is not None

@@ -1,0 +1,11 @@
+[Unit]
+Description=Create a daily Hackathon Radar SQLite snapshot
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=15m
+Persistent=true
+Unit=hackathon-radar-backup.service
+
+[Install]
+WantedBy=timers.target

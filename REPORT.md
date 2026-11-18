@@ -1,3 +1,102 @@
+# Completion report — operational reliability tranche
+
+Date: 2026-11-18 (Africa/Lagos)
+Branch: `feat/hackathon-radar-v1`
+
+## Requested
+
+Proceed with the prioritized Hackathon Radar reliability improvements: current-control delivery,
+silent source-drift detection, SQLite backup/restore, truthful status, and accurate shorthand prize
+parsing.
+
+## Implemented
+
+- Rechecked event mutes and current filters before direct and queued canonical delivery. Queued
+  alerts made ineligible by an owner action are removed without sending.
+- Added an explicit source empty-result contract. Catalog sources now enter the existing health
+  failure path when they unexpectedly return zero items.
+- Added a persisted `runtime_status` record and changed `/status` to report the latest polling
+  outcome, source-health summary, delivery failures, and fatal error type.
+- Added verified USD shorthand parsing for `K`, `M`, `B`, and their word forms.
+- Added online SQLite snapshot creation, integrity verification, collision refusal, atomic
+  publication, guarded restore, and automatic pre-restore recovery snapshots.
+- Added backup CLI tests and inactive daily systemd backup service/timer templates.
+- Updated README, `SYSTEM.md`, `MODULES.md`, product status, ADR-0011, changelog, and RED/GREEN
+  evidence.
+
+## Tested
+
+| Command | Status | Current-revision evidence |
+|---|---|---|
+| queued-alert RED | passed | existing behavior sent a muted queued alert: `assert 1 == 0` |
+| empty-source RED | passed | `error_streak` stayed `0`; explicit empty policy was unsupported |
+| runtime-status RED | passed | missing `begin_cycle` and `get_runtime_status` contracts |
+| status-review RED | passed | delivery failures were not persisted or displayed |
+| prize RED | passed | `$50K` parsed as `50`, expected `50000` |
+| backup RED | passed | missing module and missing systemd backup unit |
+| focused GREEN | passed | thirteen queue, health, status, prize, source-policy, backup, CLI, and deployment safeguards passed |
+| `make smoke-sources` | passed | nine enabled sources passed; expected healthy-empty results were Lablab `0` and Gitcoin `0` |
+| systemd unit verification | passed | backup service and timer parsed successfully; warnings concerned unrelated installed units |
+| CLI help checks | passed | backup and restore commands exited `0` with documented arguments |
+| `git diff --check` | passed | no whitespace errors |
+| `make ci` | passed | Ruff passed; pytest `100 passed` |
+
+## Passed
+
+- All requested repository changes and deterministic safeguards.
+- Additive SQLite initialization for existing databases.
+- Full lint and regression suite.
+
+## Failed
+
+- The first full gate found two lint issues in the new backup code and CLI test. Both were corrected;
+  the repeated full gate passed.
+
+## Incomplete
+
+- The backup timer is not installed or enabled on the VPS.
+- No production database restore drill has run.
+- No retention or off-host copy policy is configured.
+
+## Not verified
+
+- Live Telegram delivery was not run because this revision changes local planning and status copy,
+  not the Telegram transport contract.
+
+## Scorecard evidence
+
+| Criterion | Evidence |
+|---|---|
+| Engineering | RED/GREEN behavior tests, additive SQLite status record, guarded backup/restore, ADR-0011, and `make ci` with 100 passing tests. |
+| Design | `/status` stays within its three-line density budget; no new custom UI was added. |
+| Branding | Existing Hackathon Radar command voice and semantic vocabulary remain unchanged. |
+| Video | Not applicable: no video artefact was requested. |
+| Research | SQLite online backup, integrity, WAL-sidecar, and systemd timer behavior were checked against installed runtime tools and exercised locally; all nine enabled source smoke checks passed. |
+| Productivity | One persisted status row and one source policy flag solve the identified gaps without a new service or database. |
+| Memory | CORE, relevant Hackathon Radar deployment records, and the deployed canonical baseline were retrieved before implementation. |
+
+## Organisation memory update
+
+Source: this report and `docs/adr/0011-operational-reliability-controls.md`.
+
+Recorded as `fact-20261118-hackathon-radar-operational-reliability-tranche` with subject
+`hackathon-radar-reliability`.
+
+```text
+instruction: Preserve Hackathon Radar's delivery-time owner-control checks, explicit empty-source contracts, persisted runtime status, and verified SQLite snapshot/restore safeguards.
+who: owner and primary engineering agent
+why: queued alerts could outlive later mutes, zero-result parser drift appeared healthy, status assumed health, and the archive had no repository-owned recovery path.
+where: /home/ubuntu/my-bot aggregator.py, sources.py, event_store.py, commands.py, database_backup.py, and deployment templates
+review: when source contracts, queue semantics, persistence, deployment storage, or backup providers change
+example: muting an event during quiet hours removes its queued alert; three unexpected empty catalog polls warn once; restore preserves the replaced database first.
+```
+
+## Next step
+
+After owner approval, install the backup timer and perform a controlled production restore drill.
+
+---
+
 # Completion report — persistent Telegram bookmarks
 
 Date: 2026-11-17 (Africa/Lagos)

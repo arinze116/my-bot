@@ -24,6 +24,7 @@ class SourceSpec:
     name: str
     display_name: str
     fetch: FetchFunction
+    empty_result_is_valid: bool = False
 
 
 def enabled_sources(settings: Settings) -> list[SourceSpec]:
@@ -36,15 +37,41 @@ def enabled_sources(settings: Settings) -> list[SourceSpec]:
             SourceSpec("ethglobal", "ETHGlobal", ethglobal.fetch),
         ),
         (settings.enabled_mlh, SourceSpec("mlh", "MLH", mlh.fetch)),
-        (settings.enabled_lablab, SourceSpec("lablab", "Lablab.ai / Starfield Labs", lablab.fetch)),
+        (
+            settings.enabled_lablab,
+            SourceSpec(
+                "lablab",
+                "Lablab.ai / Starfield Labs",
+                lablab.fetch,
+                empty_result_is_valid=True,
+            ),
+        ),
         (
             settings.enabled_hackerearth,
-            SourceSpec("hackerearth", "HackerEarth", hackerearth.fetch),
+            SourceSpec(
+                "hackerearth",
+                "HackerEarth",
+                hackerearth.fetch,
+                empty_result_is_valid=True,
+            ),
         ),
-        (settings.enabled_gitcoin, SourceSpec("gitcoin", "Gitcoin", gitcoin.fetch)),
+        (
+            settings.enabled_gitcoin,
+            SourceSpec(
+                "gitcoin",
+                "Gitcoin",
+                gitcoin.fetch,
+                empty_result_is_valid=True,
+            ),
+        ),
         (
             settings.enabled_twitter and bool(settings.twitter_bearer_token),
-            SourceSpec("twitter", "X/Twitter", twitter.fetch),
+            SourceSpec(
+                "twitter",
+                "X/Twitter",
+                twitter.fetch,
+                empty_result_is_valid=True,
+            ),
         ),
     )
     return [source for is_enabled, source in candidates if is_enabled]

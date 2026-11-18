@@ -1,5 +1,49 @@
 # RED/GREEN evidence — 2026-11-16
 
+## 2026-11-18 reliability tranche
+
+### R-CONTROL-1 — queued alerts recheck current owner controls
+
+- RED command: `.venv/bin/python -m pytest -q tests/test_aggregator.py::test_due_queue_is_discarded_after_event_is_muted`.
+- RED excerpt: `assert report.sent == 0` failed because the queued alert was sent and `report.sent` was `1`.
+- GREEN behavior: the service checks current event mute state and current filters, removes ineligible queued alerts, and records one suppression.
+
+### R-HEALTH-1 — unexpected empty catalogs are degraded
+
+- RED command: the two empty-source tests in `tests/test_aggregator.py`.
+- RED excerpts: the catalog `error_streak` was `0`, expected `3`; `SourceSpec` rejected the explicit `empty_result_is_valid` contract.
+- GREEN behavior: catalog sources treat zero items as a source failure; Lablab, HackerEarth, Gitcoin, X, and any explicitly marked source may return zero as healthy.
+
+### R-STATUS-1 — persisted polling outcome
+
+- RED command: the cycle-status aggregator and Telegram status tests.
+- RED excerpts: `EventStore` had no `get_runtime_status` or `begin_cycle` methods.
+- Review RED excerpt: `RuntimeStatus` had no `delivery_failures` field and `complete_cycle` rejected
+  the new delivery-failure count.
+- GREEN behavior: the latest cycle start, completion, outcome, counts, delivery failures, and fatal
+  error type persist in `runtime_status`; `/status` renders the stored result and current source
+  health.
+
+### Prize normalization — shorthand verified USD amounts
+
+- RED command: `.venv/bin/python -m pytest -q tests/test_event_model.py::test_prize_parser_handles_usd_suffixes_and_words`.
+- RED excerpt: `$50K` parsed as `50`, expected `50000`.
+- GREEN behavior: verified USD text supports `K`, `M`, `B`, `thousand`, `million`, and `billion`; non-USD text remains unknown.
+
+### R-BACKUP-1 — consistent backup and guarded restore
+
+- RED commands: `tests/test_database_backup.py` and `tests/test_deployment.py::test_backup_timer_uses_verified_snapshot_cli`.
+- RED excerpts: `ModuleNotFoundError: No module named 'database_backup'`; the backup systemd unit did not exist.
+- GREEN behavior: online SQLite snapshots pass integrity checks and collision refusal; restore requires explicit replacement, preserves a recovery snapshot, and refuses active sidecars; the CLI and inactive daily timer contract pass.
+
+### Current-revision GREEN
+
+- Focused safeguard command: thirteen queue, health, status, prize, source-policy, backup, CLI, and
+  deployment tests.
+- Focused excerpt: `13 passed`.
+- Full command: `make ci`.
+- Full excerpt: Ruff `All checks passed!`; pytest `100 passed`.
+
 The faults below were temporarily injected into production code, observed by the named test, and then removed. The full current suite is recorded in `REPORT.md`.
 
 ## R-TIMEOUT-1 — `test_http_client_uses_bounded_timeouts`

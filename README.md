@@ -94,6 +94,39 @@ sudo systemctl status hackathon-radar
 The unit runs `/home/ubuntu/my-bot/.venv/bin/python`, loads `/home/ubuntu/my-bot/.env`,
 and restarts after failures. `deploy/hackathon-radar.logrotate` and
 `deploy/hackathon-radar.cron` hold the host hardening templates used by this deployment.
+The repository also includes a daily SQLite backup service and timer. They are not installed or
+enabled automatically.
+
+## Backup and restore
+
+Create a consistent snapshot while the worker is running:
+
+```bash
+.venv/bin/python -m scripts.database_backup backup --output-dir backups
+```
+
+The command reads `DATABASE_PATH`, uses SQLite's online backup API, runs `PRAGMA integrity_check`,
+writes through a temporary file, and refuses to overwrite an existing snapshot. Snapshot files use
+mode `600` when created by the supplied systemd service.
+
+After explicit approval to change the host service schedule, install the daily timer templates:
+
+```bash
+sudo install -o root -g root -m 0644 deploy/hackathon-radar-backup.service /etc/systemd/system/hackathon-radar-backup.service
+sudo install -o root -g root -m 0644 deploy/hackathon-radar-backup.timer /etc/systemd/system/hackathon-radar-backup.timer
+sudo systemctl daemon-reload
+sudo systemctl enable --now hackathon-radar-backup.timer
+```
+
+Restore only while the worker is stopped. `--replace` creates a verified pre-restore recovery copy
+beside the database before the atomic replacement. The command refuses to continue while SQLite
+WAL or shared-memory sidecars exist.
+
+```bash
+sudo systemctl stop hackathon-radar
+.venv/bin/python -m scripts.database_backup restore --backup backups/<snapshot>.sqlite3 --replace
+sudo systemctl start hackathon-radar
+```
 
 On the first successful read of each source, the default `BOOTSTRAP_MODE=baseline` archives current listings without sending them. This prevents a new deployment from flooding Telegram. To deliberately send all currently returned listings once:
 
@@ -192,7 +225,8 @@ SHA-1(title.lower() + "|" + url.lower())
 The additive canonical store uses normalized title, canonical URL host, and known start date for its
 stable event id. Exact canonical URLs merge. Different URLs merge only when titles are strongly
 similar, dates overlap, and at least one host/link is shared. `events`, `sightings`, `alerts_sent`,
-`source_health`, `user_prefs`, and `queued_alerts` coexist with the legacy `seen` archive.
+`source_health`, `user_prefs`, `queued_alerts`, and `runtime_status` coexist with the legacy `seen`
+archive.
 Bookmarks reuse the deployed `events.interested` flag so existing saved events remain available.
 
 SQLite uses WAL mode and a five-second busy timeout. On a cloud host, `DATABASE_PATH` must point into a persistent volume. A normal process restart preserves deduplication only if that volume remains attached.
@@ -206,6 +240,7 @@ make setup          # create .venv and install runtime/test tools
 make ci             # lint and run the deterministic suite
 make smoke-sources  # make live read-only requests to enabled providers
 make run-once       # perform one real cycle using configured credentials
+.venv/bin/python -m scripts.database_backup backup --output-dir backups
 ```
 
 ## Deployment on Railway
@@ -232,6 +267,11 @@ def fetch() -> list[dict]: ...
 
 Each item must have `title`, absolute `url`, and `platform`. Optional fields are `prize`, `start_date`, `end_date`, `deadline`, `mode`, `tech_tags`, `team_size`, `eligibility`, and `description`. Dates use `YYYY-MM-DD` when the provider supplies a parseable value.
 
+`SourceSpec.empty_result_is_valid` records whether zero items are a healthy provider result. A zero
+result from a catalog source that is expected to contain listings is recorded as a source failure;
+three consecutive failures trigger the existing owner warning. Lablab, HackerEarth, Gitcoin, and X
+currently allow zero results because their filtered public surfaces can legitimately be empty.
+
 ## Contributing
 
 1. Read `SYSTEM.md`, `MODULES.md`, and the relevant ADR before changing delivery, persistence, or a source contract.
@@ -248,7 +288,9 @@ Each item must have `title`, absolute `url`, and `platform`. Optional fields are
 - This v1 has one private Telegram owner. Crowding scores, export, organiser-account X watches, and
   the Codex hand-off action remain planned.
 - Luma remains unavailable until a documented public feed or owner-authorized API is available.
-- Host-level backup and restore are not implemented; volume-loss recovery remains unverified.
+- Backup and restore are locally verified, but the daily host timer is not installed and no
+  production restore drill has run.
+- Backup retention is manual; monitor disk use before enabling the timer for long periods.
 
 ## Documentation
 
@@ -256,6 +298,7 @@ Each item must have `title`, absolute `url`, and `platform`. Optional fields are
 - `MODULES.md`: module contracts and failure behaviour.
 - `docs/research-2026-11-16.md`: verified endpoint and hosting research.
 - `docs/adr/0001-python-worker-and-direct-http.md`: language and client decisions.
+- `docs/adr/0011-operational-reliability-controls.md`: queue, health, status, and backup decisions.
 - `docs/evidence/RED_GREEN.md`: fault-injection evidence.
 
 ## License

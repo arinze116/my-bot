@@ -16,9 +16,13 @@
 | New records | under 100/day | GUESS | no production history yet |
 | Storage growth | about 37 MB/year at 1 KB x 100/day | GUESS | upper-bound worksheet |
 | Poll completion budget | under 5 minutes | TARGET | leaves 15 minutes before next cycle |
-| RPO / RTO | last successful SQLite write / 30 minutes | TARGET | persistent volume plus process restart |
+| Backup interval | daily | TARGET | version-controlled timer; not enabled on the host |
+| RPO / RTO | 24 hours / 30 minutes | TARGET | after timer installation and a production restore drill |
 
-The system has no inbound public endpoint and no request-per-second serving load. Its burst is at most eight outbound reads in flight. Backup RPO after a host-volume failure is **Unknown** until a backup and restore drill exists.
+The system has no inbound public endpoint and no request-per-second serving load. Its burst is at
+most eight outbound reads in flight. Local snapshot and restore behavior is verified. Production
+RPO after host-volume loss remains **Unverified** until the daily timer is installed and a host
+restore drill succeeds.
 
 ## Consistency
 
@@ -27,6 +31,7 @@ The system has no inbound public endpoint and no request-per-second serving load
 | `seen` notification records | CONSISTENT | duplicate prevention depends on it |
 | canonical events, sightings, and alerts | CONSISTENT | cross-source dedupe and material-change alerts depend on them |
 | owner preferences, mutes, and bookmarks | CONSISTENT | private owner state must survive restarts |
+| latest runtime status | CONSISTENT | `/status` must report the persisted polling outcome |
 | source listing content | EVENTUAL | upstream pages can change between polls |
 | source health and startup status | EVENTUAL | informational and operational, not transactional |
 
@@ -45,13 +50,23 @@ The system has no inbound public endpoint and no request-per-second serving load
 - **R-ARCHIVE-1:** successful deliveries retain their source URL for clickable recent views; existing SQLite databases migrate additively without losing legacy rows.
 - **R-CANONICAL-1:** matching URLs, or strongly similar titles with overlapping dates and a shared host, merge into one canonical event while retaining every sighting.
 - **R-URL-1:** canonical push alerts are suppressed when their registration/event URL does not resolve after HEAD with GET fallback.
-- **R-CONTROL-1:** only the owner chat can read or mutate filters, pause state, digest state, mutes, and bookmarks; bookmark add/list/remove state persists in SQLite; preferences reload before each poll cycle.
-- **R-HEALTH-1:** source success and failure streaks persist; three consecutive failures produce one owner warning, repeated at most daily until recovery.
+- **R-CONTROL-1:** only the owner chat can read or mutate filters, pause state, digest state, mutes, and bookmarks; bookmark add/list/remove state persists in SQLite; preferences reload before each poll cycle; queued alerts re-check current mutes and filters before delivery.
+- **R-HEALTH-1:** source success and failure streaks persist; an unexpected empty catalog result counts as a failure; three consecutive failures produce one owner warning, repeated at most daily until recovery; sources whose filtered contracts legitimately allow zero results declare that policy explicitly.
+- **R-STATUS-1:** each canonical polling cycle persists its start, completion, outcome, fetched count, sent count, source-error count, delivery-failure count, and fatal error type; `/status` reports this record rather than assuming a running process is healthy.
+- **R-BACKUP-1:** backup uses SQLite's online backup API, verifies integrity, refuses overwrite, and publishes atomically; restore requires explicit replacement, preserves a pre-restore recovery copy, and refuses active WAL sidecars.
 - **R-DIGEST-1:** ongoing events are grouped once per WAT day outside quiet hours; events alerted as New or Changed in the previous 24 hours are omitted.
 
 ## Architecture
 
-Python 3.11+ modular monolith running as one systemd-managed background worker. APScheduler triggers the orchestrator. Stateless source modules perform bounded reads in parallel. The additive SQLite event store owns canonical events, sightings, alert keys, source health, preferences, bookmarks, and quiet-hour queues while the legacy `seen` table remains for archive compatibility. The alert planner decides New, Material change, Deadline soon, and daily Ongoing digest delivery. A separate isolated thread long-polls the same project Telegram bot for owner-only commands and callbacks. Telegram and X use their HTTP APIs directly so retry, timeout, and access behavior remain visible. See ADR-0009 and ADR-0010.
+Python 3.11+ modular monolith running as one systemd-managed background worker. APScheduler triggers
+the orchestrator. Stateless source modules perform bounded reads in parallel. The additive SQLite
+event store owns canonical events, sightings, alert keys, source health, preferences, bookmarks,
+quiet-hour queues, and the latest runtime status while the legacy `seen` table remains for archive
+compatibility. The alert planner decides New, Material change, Deadline soon, and daily Ongoing
+digest delivery. A separate isolated thread long-polls the same project Telegram bot for owner-only
+commands and callbacks. A separate one-shot CLI creates and restores verified SQLite snapshots.
+Telegram and X use their HTTP APIs directly so retry, timeout, and access behavior remain visible.
+See ADR-0009, ADR-0010, and ADR-0011.
 
 ## Known limits
 
@@ -63,4 +78,6 @@ Python 3.11+ modular monolith running as one systemd-managed background worker. 
 - ETHGlobal uses its public official events HTML because the guessed `/api/events` route is 404; card markup can change.
 - Crowding scores, CSV/JSON export, organiser-account X watches, and Codex hand-off buttons remain planned rather than implemented.
 - Free-host availability and persistence depend on the provider plan and volume configuration.
+- The repository backup timer is not active on the host, production restore remains unverified, and
+  snapshot retention is manual.
 - Telegram permits only one active `getUpdates` consumer for a bot token; another poller or a webhook would conflict with the command thread.
