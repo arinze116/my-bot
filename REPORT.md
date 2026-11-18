@@ -20,6 +20,8 @@ parsing.
 - Added verified USD shorthand parsing for `K`, `M`, `B`, and their word forms.
 - Added online SQLite snapshot creation, integrity verification, collision refusal, atomic
   publication, guarded restore, and automatic pre-restore recovery snapshots.
+- Added immutable snapshot verification, temporary-sidecar cleanup, and a second sidecar check that
+  stops replacement if a writer appears during the recovery copy.
 - Added backup CLI tests and inactive daily systemd backup service/timer templates.
 - Updated README, `SYSTEM.md`, `MODULES.md`, product status, ADR-0011, changelog, and RED/GREEN
   evidence.
@@ -34,34 +36,59 @@ parsing.
 | status-review RED | passed | delivery failures were not persisted or displayed |
 | prize RED | passed | `$50K` parsed as `50`, expected `50000` |
 | backup RED | passed | missing module and missing systemd backup unit |
+| deployment-sidecar RED | passed | WAL snapshots left `.tmp-shm` and `.tmp-wal` files before cleanup was added |
 | focused GREEN | passed | thirteen queue, health, status, prize, source-policy, backup, CLI, and deployment safeguards passed |
 | `make smoke-sources` | passed | nine enabled sources passed; expected healthy-empty results were Lablab `0` and Gitcoin `0` |
 | systemd unit verification | passed | backup service and timer parsed successfully; warnings concerned unrelated installed units |
 | CLI help checks | passed | backup and restore commands exited `0` with documented arguments |
 | `git diff --check` | passed | no whitespace errors |
-| `make ci` | passed | Ruff passed; pytest `100 passed` |
+| `make ci` | passed | Ruff passed; pytest `102 passed` |
 
 ## Passed
 
 - All requested repository changes and deterministic safeguards.
 - Additive SQLite initialization for existing databases.
+- PR #1 merged the reliability release as `b7630820fdbc558ecfe6e3209b54d2d7cc176bc3`.
+- The daily backup timer is installed, enabled, and waiting for its next run.
+- A controlled retry restored a byte-identical snapshot and the worker completed a real cycle with
+  `fetched=95`, `sent=0`, `source_errors=0`, and zero delivery failures.
 - Full lint and regression suite.
 
 ## Failed
 
 - The first full gate found two lint issues in the new backup code and CLI test. Both were corrected;
   the repeated full gate passed.
+- The first production restore attempt was invalidated when the installed cron watchdog restarted
+  the worker during maintenance. The concurrent cycle ended with `no such table: runtime_status`.
+  The service was stopped again, the watchdog was paused, and the drill was repeated successfully.
+- The successful drill exposed orphan SQLite sidecars for tool-owned temporary snapshots. A failing
+  WAL regression test reproduced the defect before the cleanup and mid-restore recheck fix.
 
 ## Incomplete
 
-- The backup timer is not installed or enabled on the VPS.
-- No production database restore drill has run.
 - No retention or off-host copy policy is configured.
 
 ## Not verified
 
 - Live Telegram delivery was not run because this revision changes local planning and status copy,
   not the Telegram transport contract.
+- Recovery after complete loss of the host volume is not verified because snapshots remain on the
+  same host.
+
+## Deployment evidence
+
+- Initial release PR: `https://github.com/arinze116/my-bot/pull/1`.
+- Release merge: `b7630820fdbc558ecfe6e3209b54d2d7cc176bc3`.
+- Successful restore source:
+  `/home/ubuntu/my-bot/backups/hackathon-radar-20261118T222134.923261Z.sqlite3`.
+- Successful pre-restore recovery copy:
+  `/home/ubuntu/my-bot/seen_hackathons-pre-restore-20261118T222144.472849Z.sqlite3`.
+- Manual unit snapshot:
+  `/home/ubuntu/my-bot/backups/hackathon-radar-20261118T222218.216032Z.sqlite3`.
+- Worker after the successful retry: PID `2592056`, `NRestarts=0`, persisted status `success` with
+  95 fetched items and no source or delivery failures.
+- Backup timer: enabled and waiting; next scheduled run was `2026-11-19 00:09:01 WAT`.
+- Backup service: `Result=success`, `ExecMainStatus=0`; the snapshot uses mode `600`.
 
 ## Scorecard evidence
 
@@ -93,7 +120,8 @@ example: muting an event during quiet hours removes its queued alert; three unex
 
 ## Next step
 
-After owner approval, install the backup timer and perform a controlled production restore drill.
+Merge and deploy the temporary-sidecar cleanup, rerun the real backup unit, and record the final
+deployment SHA.
 
 ---
 

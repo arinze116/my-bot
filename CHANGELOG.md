@@ -4,7 +4,8 @@
 
 - Revalidate queued alerts against current owner controls, detect unexpected empty catalog results,
   persist truthful polling status, parse shorthand USD prizes, and add verified SQLite backup and
-  guarded restore tooling with an inactive daily timer template.
+  guarded restore tooling with a daily timer, temporary-sidecar cleanup, and mid-restore writer
+  detection.
 - Add persistent Telegram bookmarks with alert and typed add actions, a grid list view, inline Remove controls, and SQLite-backed reload behavior.
 - Initial Hackathon Radar worker, source adapters, SQLite deduplication, Telegram delivery, tests, and deployment documentation.
 - Wire manual and systemd execution to the project virtualenv, load `.env` safely with python-dotenv, add the VPS production unit, and include logrotate/watchdog deployment templates.

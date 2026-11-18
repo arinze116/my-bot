@@ -53,7 +53,7 @@ restore drill succeeds.
 - **R-CONTROL-1:** only the owner chat can read or mutate filters, pause state, digest state, mutes, and bookmarks; bookmark add/list/remove state persists in SQLite; preferences reload before each poll cycle; queued alerts re-check current mutes and filters before delivery.
 - **R-HEALTH-1:** source success and failure streaks persist; an unexpected empty catalog result counts as a failure; three consecutive failures produce one owner warning, repeated at most daily until recovery; sources whose filtered contracts legitimately allow zero results declare that policy explicitly.
 - **R-STATUS-1:** each canonical polling cycle persists its start, completion, outcome, fetched count, sent count, source-error count, delivery-failure count, and fatal error type; `/status` reports this record rather than assuming a running process is healthy.
-- **R-BACKUP-1:** backup uses SQLite's online backup API, verifies integrity, refuses overwrite, and publishes atomically; restore requires explicit replacement, preserves a pre-restore recovery copy, and refuses active WAL sidecars.
+- **R-BACKUP-1:** backup uses SQLite's online backup API, verifies integrity without creating snapshot sidecars, removes temporary sidecars, refuses overwrite, and publishes atomically; restore requires explicit replacement, preserves a pre-restore recovery copy, and checks for active WAL sidecars again before replacement.
 - **R-DIGEST-1:** ongoing events are grouped once per WAT day outside quiet hours; events alerted as New or Changed in the previous 24 hours are omitted.
 
 ## Architecture
@@ -78,6 +78,6 @@ See ADR-0009, ADR-0010, and ADR-0011.
 - ETHGlobal uses its public official events HTML because the guessed `/api/events` route is 404; card markup can change.
 - Crowding scores, CSV/JSON export, organiser-account X watches, and Codex hand-off buttons remain planned rather than implemented.
 - Free-host availability and persistence depend on the provider plan and volume configuration.
-- The repository backup timer is not active on the host, production restore remains unverified, and
-  snapshot retention is manual.
+- The daily host backup timer and local restore path are verified. Backups still share the worker's
+  host, retention is manual, and recovery after full host-volume loss remains unverified.
 - Telegram permits only one active `getUpdates` consumer for a bot token; another poller or a webhook would conflict with the command thread.
