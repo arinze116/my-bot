@@ -21,7 +21,7 @@ Authoritative product direction: owner PRD dated 2026-11-17. Runtime is Python +
 | Silent empty-source detection | Implemented | Explicit empty-result policy plus existing three-failure warning |
 | Truthful runtime status | Implemented | Persisted cycle outcome and source-health summary in `/status` |
 | SQLite backup and restore | Deployed | Online snapshot, integrity check, guarded restore, active timer, and production drill |
-| Off-host backup and recovery drill | Locally verified | Telegram candidate upload, download, SHA-256 check, isolated restore, and stable-message retention tests |
+| Off-host backup and recovery drill | Deployed | Enabled timer; two live Telegram upload, download, SHA-256, and isolated restore cycles; stable message reused and transient candidate deleted |
 | Crowding heuristic | Pending | No reliable cross-source field verified |
 | JSON/CSV export | Pending | v1.1 |
 | Codex hand-off action | Pending | v1.1; no outbound action without owner approval |
@@ -43,6 +43,7 @@ Authoritative product direction: owner PRD dated 2026-11-17. Runtime is Python +
 | AT9 mute/filter changes cancel queued delivery | Passed | Queued-alert control regression |
 | AT10 unexpected zero-result catalog degrades health | Passed | Empty-source policy tests |
 | AT11 backup round-trip preserves current and recovery databases | Passed | Backup, restore, CLI, and deployment tests |
+| AT12 off-host retention keeps one verified recoverable document | Passed | Two live service runs reused the stable message, replaced its document, deleted the second candidate, and left no pending deletion |
 
 ## Remaining product limits
 

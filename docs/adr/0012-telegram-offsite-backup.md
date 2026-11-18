@@ -1,7 +1,7 @@
 # ADR-0012: Telegram off-host backup
 
 Date: 2026-11-19
-Status: accepted locally, deployment pending
+Status: accepted and deployed
 
 ## Context
 
@@ -41,6 +41,18 @@ because bots cannot reliably delete messages older than 48 hours.
 - The owner can download the stable document from Telegram even if the VPS is unavailable.
 - Telegram bot chats are cloud-stored, not end-to-end encrypted. The design has one provider and one
   retained version, so it does not replace a future encrypted multi-version object-store backup.
+
+## Deployment verification
+
+On 2026-11-19, revision `978973b` passed `make ci` with Ruff clean and 111 tests. The off-host
+timer was installed, enabled, and scheduled through systemd. Two manual production service runs
+completed against the configured owner chat. The second run reused the first stable message,
+replaced its document, deleted its transient candidate, and left zero pending deletions. The local
+catalog remained mode 600. Each successful service run downloaded the remote document and restored
+it into an isolated SQLite database before exit.
+
+A separate, clearly labeled synthetic alert returned success through `TelegramClient.send_hackathon`
+using the project configuration. Its test URL remained absent from the SQLite `seen` archive.
 
 ## Reversal trigger
 

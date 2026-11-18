@@ -57,6 +57,12 @@
   recreated; ambiguous uploads are not retried; the mode-600 catalog and Bot API boundary are
   covered.
 - Focused GREEN excerpt: `9 passed`.
+- Production GREEN: the enabled systemd service completed two live Telegram upload, download,
+  SHA-256, and isolated restore cycles. The second cycle reused the stable message, replaced its
+  document, deleted one transient candidate, retained zero pending deletions, and kept the catalog
+  at mode 600.
+- Delivery GREEN: one labeled synthetic alert returned `True` through
+  `TelegramClient.send_hackathon`; its URL remained absent from the `seen` archive.
 
 ### Current-revision GREEN
 
