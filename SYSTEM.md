@@ -17,13 +17,14 @@
 | Storage growth | about 37 MB/year at 1 KB x 100/day | GUESS | upper-bound worksheet |
 | Poll completion budget | under 5 minutes | TARGET | leaves 15 minutes before next cycle |
 | Local backup interval | daily | VERIFIED | installed systemd timer and successful production run |
-| Off-host retention | latest verified daily snapshot | TARGET | stable Telegram document plus recovery drill |
-| RPO / RTO | 24 hours / 30 minutes | TARGET | after off-host timer installation and live remote drill |
+| Off-host retention | latest verified daily snapshot | VERIFIED | enabled timer and two live Telegram recovery drills |
+| Off-host RPO | at most 24 hours | VERIFIED | daily persistent timer and stable latest-verified document |
+| Full host rebuild RTO | 30 minutes | TARGET | off-host data recovery passes; a complete VPS rebuild is not timed |
 
 The system has no inbound public endpoint and no request-per-second serving load. Its burst is at
-most eight outbound reads in flight. Local snapshot and restore behavior is verified. The off-host
-workflow is locally verified, but production RPO after host-volume loss remains **Unverified**
-until the remote timer is installed and a live Telegram recovery drill succeeds.
+most eight outbound reads in flight. Local snapshot and restore behavior is verified. The deployed
+off-host workflow completed two live Telegram upload, download, SHA-256, and isolated restore
+cycles. A complete VPS rebuild remains outside the measured recovery drill.
 
 ## Consistency
 

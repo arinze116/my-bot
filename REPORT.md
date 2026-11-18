@@ -1,3 +1,123 @@
+# Completion report: Telegram off-host retention and live delivery
+
+Date: 2026-11-19 (Africa/Lagos)
+Branch: `docs/telegram-offsite-backup-deployment`
+
+## Requested
+
+Complete off-host backup retention and recovery testing, deliberately verify live Telegram alert
+delivery, then commit, push, merge, and deploy the finished revision.
+
+## Implemented
+
+- Added a daily off-host job that creates an online SQLite snapshot and uploads a silent Telegram
+  candidate to the configured owner chat.
+- Required a Bot API download, SHA-256 match, and isolated SQLite restore before promotion.
+- Kept one stable verified message. Later runs replace its document and delete the transient
+  candidate.
+- Added rollback when final verification fails, recovery when the stable message is missing,
+  persisted deletion retry, a file lock, and a mode-600 atomic catalog.
+- Stopped automatic retries for ambiguous `sendDocument` writes because Telegram has no
+  idempotency key that can prove whether the first upload succeeded.
+- Added a one-shot CLI, a daily systemd service and timer, ADR-0012, operator documentation, and
+  behavior tests.
+- Installed and enabled the timer on the production host.
+- Sent one clearly labeled synthetic alert through the production `TelegramClient`. The alert was
+  not inserted into the SQLite `seen` archive.
+
+## Tested
+
+| Check | Status | Current-revision evidence |
+|---|---|---|
+| module and unit RED | passed | missing `offsite_backup` module and missing off-host systemd unit before implementation |
+| ambiguous upload RED | passed | safeguard observed three upload attempts instead of one: `assert 3 == 1` |
+| focused GREEN | passed | off-host and deployment safeguards reported `9 passed` |
+| systemd unit verification | passed | service and timer parsed; warnings concerned unrelated installed monitoring-agent units |
+| CLI contract | passed | `python -m scripts.offsite_backup --help` exited 0 |
+| branch gate | passed | Ruff clean; pytest `111 passed` |
+| merged-revision gate | passed | Ruff clean; pytest `111 passed` on `978973b` |
+| diff review | passed | `git diff --check` passed; no credential patterns, code comments, or suppressions were added |
+| first live off-host run | passed | service result `success`, exit status 0, remote recovery verified, stable record created |
+| second live off-host run | passed | same stable message, new stable document, one candidate deleted, zero pending deletions |
+| catalog permissions | passed | `offsite_backups.json` remained mode 600 |
+| live Telegram alert | passed | `TelegramClient.send_hackathon` returned `True` for the labeled synthetic alert |
+| archive isolation | passed | the synthetic alert URL had zero `seen` rows before and after delivery |
+
+## Passed
+
+- PR #4 merged the code and deployment templates as
+  `978973b0781717c5cc271826fbeaca224814c9d2`.
+- The off-host timer is installed, enabled, active, and scheduled daily.
+- Two real provider cycles uploaded, downloaded, hash-checked, and restored the 385,024-byte
+  production archive.
+- The second cycle preserved the stable message identity, replaced its document, and deleted the
+  transient candidate.
+- Live Telegram alert delivery succeeded through the project `.env` credential boundary.
+- The worker archive was not changed by the synthetic delivery test.
+
+## Failed
+
+- The first local verification script checked the last systemd journal line instead of the last
+  service output line. It stopped after the first service had already succeeded. The service state
+  and sanitized journal were inspected before one deliberate second run. No blind retry occurred.
+
+## Incomplete
+
+- None within the requested off-host retention, remote recovery, and live-delivery scope.
+
+## Not verified
+
+- A complete VPS loss and rebuild was not timed. The live drill verifies the remote document and
+  restored SQLite data, not full machine reconstruction.
+- Telegram accepted the synthetic alert through the Bot API. The authenticated client display was
+  not independently inspected.
+
+## Deployment evidence
+
+- Code PR: `https://github.com/arinze116/my-bot/pull/4`.
+- Code merge: `978973b0781717c5cc271826fbeaca224814c9d2`.
+- Timer: enabled and active; the first scheduled run was `2026-11-19 01:03:18 WAT`.
+- Both manual service runs returned `Result=success` and `ExecMainStatus=0`.
+- Retention check: stable message reused, stable document replaced, second candidate deleted, and
+  zero pending deletions.
+- Catalog: mode 600; no Telegram message or file identifiers are recorded in this report.
+- Delivery check: `delivery_confirmed=True archive_rows_for_test_url=0`.
+
+## Scorecard evidence
+
+| Criterion | Evidence |
+|---|---|
+| Engineering | RED/GREEN behavior tests, rollback paths, atomic catalog writes, ambiguous-write protection, 111 passing tests, and two live recovery cycles. |
+| Design | No visual interface changed. Operator commands and failure states are documented in README and ADR-0012. |
+| Branding | The synthetic alert was explicitly labeled `TEST ONLY` and used the existing Hackathon Radar alert format. |
+| Video | Not applicable. No video artefact was requested. |
+| Research | Telegram upload, download, edit, and deletion limits were checked against the official Bot API; installed systemd tooling verified the deployed units. |
+| Productivity | One stable Telegram document supplies off-host retention without a new provider, daemon, or credential set. |
+| Memory | CORE, the prior reliability deployment fact, and the production credential-boundary lesson were retrieved before deployment. |
+
+## Organisation memory update
+
+Source: this report and `docs/adr/0012-telegram-offsite-backup.md`.
+
+Proposed superseding fact:
+
+```text
+instruction: Preserve Hackathon Radar's one-stable-message off-host invariant, live download and isolated restore verification, mode-600 catalog, and no retry for ambiguous Telegram document uploads.
+who: owner and primary engineering agent
+why: host-local snapshots do not survive volume loss, and retrying an upload with an unknown outcome can create undeletable duplicate backup messages.
+where: /home/ubuntu/my-bot offsite_backup.py, scripts/offsite_backup.py, deployment units, and backup runbook
+review: when Telegram limits, backup providers, database size, retention history, or recovery objectives change
+example: a second daily run must keep the stable message, replace its document only after remote recovery passes, delete the candidate, and leave zero pending deletions.
+```
+
+## Next step
+
+Move to encrypted multi-version object storage when the owner approves a provider and credential
+boundary. Until then, Telegram supplies one cloud-stored recovery point without an independent
+object-storage SLA.
+
+---
+
 # Completion report — operational reliability tranche
 
 Date: 2026-11-18 (Africa/Lagos)
