@@ -72,6 +72,15 @@
 - **Hard part:** a host restore requires pausing external restart watchdogs, stopping the live service, and verifying the original worker path after restart.
 - **Red tests:** backup consistency, collision refusal, sidecar cleanup, mid-restore writer refusal, recovery-copy restore, CLI execution, and systemd timer contract tests.
 
+## Telegram off-host backup
+
+- **Owns:** the mode-600 off-host catalog, one stable Telegram document, transient candidate cleanup, remote SHA-256 verification, and an isolated restore drill.
+- **Promises:** the stable document changes only after the candidate uploads, downloads, matches the local snapshot hash, and restores successfully; ambiguous upload writes are not retried; the previous stable document survives a failed drill; no credential file is uploaded (R-BACKUP-1).
+- **Depends on:** the configured owner Telegram chat, Bot API document upload/edit/download/delete methods, the local snapshot module, and a database smaller than the verified 20 MB download limit.
+- **Fails how:** network, malformed response, hash mismatch, restore failure, missing catalog fields, or unresolved transient-message deletion makes the one-shot unit fail without replacing a verified stable backup.
+- **Hard part:** Telegram permits deletion only within 48 hours, so retention uses one stable edited message plus a fresh candidate rather than an accumulating history.
+- **Red tests:** missing off-site module/unit, corrupted remote download, stable-message replacement, missing-stable recovery, transport boundary, and mode-600 catalog tests.
+
 ## Telegram command center
 
 - **Owns:** bot identity customization, owner-only `getUpdates`, command routing, and the native two-column reply keyboard.

@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh the verified Hackathon Radar off-host backup daily
+
+[Timer]
+OnCalendar=*-*-* 01:00:00
+RandomizedDelaySec=15m
+Persistent=true
+Unit=hackathon-radar-offsite-backup.service
+
+[Install]
+WantedBy=timers.target

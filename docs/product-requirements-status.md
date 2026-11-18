@@ -20,7 +20,8 @@ Authoritative product direction: owner PRD dated 2026-11-17. Runtime is Python +
 | Queued-alert control revalidation | Implemented | Due alerts re-check current event/source/domain mutes and filters |
 | Silent empty-source detection | Implemented | Explicit empty-result policy plus existing three-failure warning |
 | Truthful runtime status | Implemented | Persisted cycle outcome and source-health summary in `/status` |
-| SQLite backup and restore | Locally verified | Online snapshot, integrity check, guarded restore, and inactive timer template |
+| SQLite backup and restore | Deployed | Online snapshot, integrity check, guarded restore, active timer, and production drill |
+| Off-host backup and recovery drill | Locally verified | Telegram candidate upload, download, SHA-256 check, isolated restore, and stable-message retention tests |
 | Crowding heuristic | Pending | No reliable cross-source field verified |
 | JSON/CSV export | Pending | v1.1 |
 | Codex hand-off action | Pending | v1.1; no outbound action without owner approval |
@@ -46,5 +47,6 @@ Authoritative product direction: owner PRD dated 2026-11-17. Runtime is Python +
 ## Remaining product limits
 
 Completeness across the public internet is not guaranteed. Scraped provider contracts can drift.
-Crowding is unknown where providers expose no applicant/popularity field. Backup and restore pass
-local tests, but the daily host timer is not installed and a production restore drill has not run.
+Crowding is unknown where providers expose no applicant/popularity field. Telegram off-host backup
+is cloud-stored rather than end-to-end encrypted and retains one latest verified snapshot rather
+than multi-version history.

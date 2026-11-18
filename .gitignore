@@ -9,6 +9,7 @@ htmlcov/
 seen_hackathons.db
 seen_hackathons.db-*
 *.sqlite3
+offsite_backups.json*
 *.log
 dist/
 build/

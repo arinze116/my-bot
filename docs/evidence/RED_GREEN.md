@@ -46,13 +46,25 @@
   removed; restore rechecks destination sidecars after the recovery copy; the host runbook pauses
   external watchdogs until the recovered worker completes a real cycle.
 
+### R-BACKUP-1 — off-host retention and recovery
+
+- RED command: `.venv/bin/python -m pytest -q tests/test_offsite_backup.py tests/test_deployment.py::test_offsite_backup_timer_runs_verified_telegram_recovery`.
+- RED excerpts: `ModuleNotFoundError: No module named 'offsite_backup'`; the off-host systemd unit
+  and timer did not exist; the ambiguous-upload safeguard observed three `sendDocument` attempts
+  instead of one (`assert 3 == 1`).
+- GREEN behavior: a transient Telegram candidate must download, match SHA-256, and restore before
+  promotion; the previous stable message survives a corrupt candidate; a missing stable message is
+  recreated; ambiguous uploads are not retried; the mode-600 catalog and Bot API boundary are
+  covered.
+- Focused GREEN excerpt: `9 passed`.
+
 ### Current-revision GREEN
 
 - Focused safeguard command: thirteen queue, health, status, prize, source-policy, backup, CLI, and
   deployment tests.
 - Focused excerpt: `13 passed`.
 - Full command: `make ci`.
-- Full excerpt: Ruff `All checks passed!`; pytest `102 passed`.
+- Full excerpt: Ruff `All checks passed!`; pytest `111 passed`.
 
 The faults below were temporarily injected into production code, observed by the named test, and then removed. The full current suite is recorded in `REPORT.md`.
 

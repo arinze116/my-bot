@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add a daily Telegram off-host SQLite backup that keeps one stable latest-verified document,
+  performs a download-and-restore drill after every upload, and removes transient candidates.
 - Revalidate queued alerts against current owner controls, detect unexpected empty catalog results,
   persist truthful polling status, parse shorthand USD prizes, and add verified SQLite backup and
   guarded restore tooling with a daily timer, temporary-sidecar cleanup, and mid-restore writer
