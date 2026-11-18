@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from event_model import canonicalize_hackathon, events_match
+from event_model import canonicalize_hackathon, events_match, parse_prize_usd
 
 
 def test_canonical_event_derives_status_tags_and_stable_id() -> None:
@@ -55,3 +55,10 @@ def test_events_match_same_event_seen_by_listing_and_x() -> None:
     )
 
     assert events_match(listing, social) is True
+
+
+def test_prize_parser_handles_usd_suffixes_and_words() -> None:
+    assert parse_prize_usd("$50K in prizes") == 50_000
+    assert parse_prize_usd("USD 1.5M prize pool") == 1_500_000
+    assert parse_prize_usd("$2 million total") == 2_000_000
+    assert parse_prize_usd("€50K") is None

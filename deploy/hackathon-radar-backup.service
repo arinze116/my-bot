@@ -1,0 +1,11 @@
+[Unit]
+Description=Create a verified Hackathon Radar SQLite snapshot
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/my-bot
+EnvironmentFile=/home/ubuntu/my-bot/.env
+UMask=0077
+ExecStart=/home/ubuntu/my-bot/.venv/bin/python -m scripts.database_backup backup --output-dir /home/ubuntu/my-bot/backups

@@ -210,10 +210,24 @@ def _has_term(term: str, padded: str, tokens: set[str]) -> bool:
 def parse_prize_usd(value: str) -> int | None:
     if not value or not any(marker in value.casefold() for marker in ("$", "usd")):
         return None
-    match = re.search(r"\d[\d,]*(?:\.\d+)?", value)
+    match = re.search(
+        r"(?P<amount>\d[\d,]*(?:\.\d+)?)\s*"
+        r"(?P<suffix>k|m|b|thousand|million|billion)?\b",
+        value.casefold(),
+    )
     if not match:
         return None
-    return int(float(match.group().replace(",", "")))
+    multipliers = {
+        "": 1,
+        "k": 1_000,
+        "thousand": 1_000,
+        "m": 1_000_000,
+        "million": 1_000_000,
+        "b": 1_000_000_000,
+        "billion": 1_000_000_000,
+    }
+    amount = float(match.group("amount").replace(",", ""))
+    return int(amount * multipliers[match.group("suffix") or ""])
 
 
 def _shared_hosts(first: CanonicalEvent, second: CanonicalEvent) -> bool:

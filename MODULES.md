@@ -3,7 +3,7 @@
 ## source adapters
 
 - **Owns:** no persistent state; one provider contract per `scrapers/<source>.py`.
-- **Promises:** `fetch() -> list[dict]`; required `title`, `url`, and `platform` values are non-empty; outside calls obey R-TIMEOUT-1; remote fields are treated as untrusted; X results pass `is_announcement()` and obey R-DISCOVERY-1.
+- **Promises:** `fetch() -> list[dict]`; required `title`, `url`, and `platform` values are non-empty; outside calls obey R-TIMEOUT-1; remote fields are treated as untrusted; X results pass `is_announcement()` and obey R-DISCOVERY-1; each `SourceSpec` declares whether an empty filtered result is valid.
 - **Depends on:** public provider pages/APIs, whose availability and schemas have no common SLA.
 - **Fails how:** raises a source-scoped exception; the orchestrator logs it and continues other sources.
 - **Hard part:** detecting provider contract drift without creating false alerts.
@@ -12,15 +12,15 @@
 ## aggregator
 
 - **Owns:** source execution order, within-cycle deduplication, first-sync policy, and delivery-to-database sequencing.
-- **Promises:** source isolation (R-SCHEDULE-1); known ids do not send (R-DEDUP-1); safe first sync does not flood Telegram (R-BOOTSTRAP-1); canonical plans reload preferences every cycle; delivery exceptions stay isolated; daily digests obey R-DIGEST-1.
+- **Promises:** source isolation (R-SCHEDULE-1); known ids do not send (R-DEDUP-1); safe first sync does not flood Telegram (R-BOOTSTRAP-1); canonical plans reload preferences every cycle; current owner controls are rechecked before direct or queued delivery; unexpected empty catalogs enter source health as failures; cycle status persists; delivery exceptions stay isolated; daily digests obey R-DIGEST-1.
 - **Depends on:** adapters, legacy `Database`, `EventStore`, `AlertPlanner`, `URLVerifier`, and `TelegramClient`.
 - **Fails how:** a source error is recorded and skipped; a delivery failure remains unseen for a later cycle.
 - **Hard part:** the unavoidable ambiguity between a remote Telegram write and the local SQLite commit.
-- **Red tests:** `test_failed_delivery_is_not_marked_seen` -> R-DELIVERY-1; `test_baseline_marks_without_sending` -> R-BOOTSTRAP-1; `test_duplicate_is_sent_once` -> R-DEDUP-1.
+- **Red tests:** `test_failed_delivery_is_not_marked_seen` -> R-DELIVERY-1; `test_baseline_marks_without_sending` -> R-BOOTSTRAP-1; `test_duplicate_is_sent_once` -> R-DEDUP-1; `test_due_queue_is_discarded_after_event_is_muted` -> R-CONTROL-1; empty-source and cycle-status tests -> R-HEALTH-1/R-STATUS-1.
 
 ## canonical event model and store
 
-- **Owns:** stable event identity, URL/title normalization, status derivation, inferred region/stack tags, canonical event rows, sightings, alert keys, source health, preferences, mutes, bookmarks, and quiet-hour queues.
+- **Owns:** stable event identity, URL/title normalization, status derivation, inferred region/stack tags, canonical event rows, sightings, alert keys, source health, preferences, mutes, bookmarks, quiet-hour queues, and the latest runtime status.
 - **Promises:** cross-source merges follow R-CANONICAL-1; legacy rows remain intact; material prize/deadline/status changes are explicit; bookmark state uses the existing `interested` column and survives restarts; all writes are additive SQLite transactions.
 - **Depends on:** the same SQLite file as the legacy archive and UTC timestamps.
 - **Fails how:** malformed optional fields become unknown/empty; missing required source fields are rejected before canonicalization; database failures abort the affected item.
@@ -30,7 +30,7 @@
 ## alert planner and URL verifier
 
 - **Owns:** owner filters, pause/digest state, quiet-hour delivery times, stable New/Change/72h/24h alert keys, daily digest keys, and live URL checks.
-- **Promises:** muted events/sources/domains never alert; preferences are explainable; quiet hours queue until 06:30 WAT; dead canonical URLs are suppressed (R-CONTROL-1/R-URL-1/R-DIGEST-1).
+- **Promises:** muted events/sources/domains never alert, including alerts queued before the owner changed a control; preferences are explainable; quiet hours queue until 06:30 WAT; dead canonical URLs are suppressed (R-CONTROL-1/R-URL-1/R-DIGEST-1).
 - **Depends on:** canonical events, owner preferences, WAT timezone data, and bounded HTTP HEAD/GET calls.
 - **Fails how:** unknown values do not invent facts; HTTP errors resolve to `False`; a failed delivery remains unrecorded for retry.
 - **Hard part:** URL availability can change after verification and some valid providers reject HEAD, hence GET fallback.
@@ -56,17 +56,26 @@
 
 ## runtime deployment
 
-- **Owns:** `.venv`, `deploy/hackathon-radar.service`, logrotate/watchdog templates, process restart policy, and explicit `.env` loading for manual runs.
+- **Owns:** `.venv`, `deploy/hackathon-radar.service`, backup service/timer templates, logrotate/watchdog templates, process restart policy, and explicit `.env` loading for manual runs.
 - **Promises:** manual and systemd execution use the same dependency set; when the project `.env` exists, its Telegram token/chat id override ambient agent values; production restarts after process failure (R-RUNTIME-1); credentials remain outside git (R-SECRET-1).
 - **Depends on:** Python 3.11+, systemd, a readable mode-600 `.env`, network availability, and the repository path remaining `/home/ubuntu/my-bot`.
 - **Fails how:** a missing virtualenv dependency fails before startup; systemd records the traceback and retries after ten seconds.
 - **Hard part:** preventing interpreter drift between shell smoke tests and the live service.
-- **Red tests:** `test_settings_uses_project_telegram_token_over_ambient` and `test_systemd_unit_uses_project_virtualenv_and_environment_file` -> R-RUNTIME-1/R-SECRET-1.
+- **Red tests:** `test_settings_uses_project_telegram_token_over_ambient`, `test_systemd_unit_uses_project_virtualenv_and_environment_file`, and `test_backup_timer_uses_verified_snapshot_cli` -> R-RUNTIME-1/R-SECRET-1/R-BACKUP-1.
+
+## database backup and restore
+
+- **Owns:** consistent SQLite snapshot creation, integrity checks, atomic publication, guarded replacement, and pre-restore recovery copies.
+- **Promises:** backup can read a WAL database while the worker runs; an existing snapshot is never overwritten; restore requires explicit replacement and refuses WAL/SHM sidecars (R-BACKUP-1).
+- **Depends on:** Python's SQLite backup API and a writable destination on the same filesystem for atomic replacement.
+- **Fails how:** missing/corrupt files, name collisions, active sidecars, or failed integrity checks abort before the destination changes.
+- **Hard part:** a host restore still requires stopping the live service and verifying the original worker path after restart.
+- **Red tests:** backup consistency, collision refusal, recovery-copy restore, CLI execution, and systemd timer contract tests.
 
 ## Telegram command center
 
 - **Owns:** bot identity customization, owner-only `getUpdates`, command routing, and the native two-column reply keyboard.
-- **Promises:** only the configured chat can read or mutate data; the two-column grid exposes New, Ongoing, Soon, Bookmarks, Filters, Sources, Alerts, Digest, Vault, and Hide; `/bookmarks`, `/bookmark`, and `/unbookmark` provide list/add/remove fallbacks; callbacks persist Mute and Bookmark actions; command failures do not stop APScheduler (R-COMMAND-1/R-CONTROL-1).
+- **Promises:** only the configured chat can read or mutate data; the two-column grid exposes New, Ongoing, Soon, Bookmarks, Filters, Sources, Alerts, Digest, Vault, and Hide; `/status` reports persisted cycle and source health; `/bookmarks`, `/bookmark`, and `/unbookmark` provide list/add/remove fallbacks; callbacks persist Mute and Bookmark actions; command failures do not stop APScheduler (R-COMMAND-1/R-CONTROL-1/R-STATUS-1).
 - **Depends on:** Telegram Bot API long polling, legacy `Database`, `EventStore`, and active source display names.
 - **Fails how:** API/network errors are logged without credentials and retried by the polling loop; unauthorized updates are silently ignored.
 - **Hard part:** avoiding a second `getUpdates` consumer while keeping shutdown bounded.

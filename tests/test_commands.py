@@ -80,6 +80,76 @@ def test_grid_and_status_commands_send_owner_dashboard(settings_factory) -> None
     )
 
 
+def test_status_reports_persisted_cycle_and_source_health(settings_factory) -> None:
+    settings = settings_factory()
+    database = Database(settings.database_path)
+    database.init()
+    store = EventStore(settings.database_path)
+    store.init()
+    started = datetime(2026, 11, 17, 11, 59, tzinfo=UTC)
+    completed = datetime(2026, 11, 17, 12, 0, tzinfo=UTC)
+    store.begin_cycle(started)
+    store.complete_cycle(
+        fetched=18,
+        sent=2,
+        source_errors=1,
+        delivery_failures=0,
+        completed_at=completed,
+    )
+    store.record_source_success("devpost", 12, now=completed)
+    store.record_source_error("twitter", "HTTP 503", now=completed)
+    poller = TelegramCommandPoller(
+        settings,
+        database,
+        ("Devpost", "X/Twitter"),
+        event_store=store,
+        clock=lambda: datetime(2026, 11, 17, 12, 5, tzinfo=UTC),
+        client=httpx.Client(transport=httpx.MockTransport(lambda request: None)),
+    )
+
+    text, _, _ = poller._response_for("/status")
+
+    assert text == (
+        "<b>Radar status</b>\n"
+        "Last scan · 5 min ago · 18 found\n"
+        "Sources · 1/2 healthy · 1 failed"
+    )
+
+
+def test_status_reports_delivery_and_fatal_cycle_failures(settings_factory) -> None:
+    settings = settings_factory()
+    database = Database(settings.database_path)
+    database.init()
+    store = EventStore(settings.database_path)
+    store.init()
+    completed = datetime(2026, 11, 17, 12, 0, tzinfo=UTC)
+    store.begin_cycle(datetime(2026, 11, 17, 11, 59, tzinfo=UTC))
+    store.complete_cycle(
+        fetched=18,
+        sent=0,
+        source_errors=0,
+        delivery_failures=1,
+        completed_at=completed,
+    )
+    store.record_source_success("devpost", 18, now=completed)
+    poller = TelegramCommandPoller(
+        settings,
+        database,
+        ("Devpost",),
+        event_store=store,
+        clock=lambda: datetime(2026, 11, 17, 12, 5, tzinfo=UTC),
+        client=httpx.Client(transport=httpx.MockTransport(lambda request: None)),
+    )
+
+    delivery_text, _, _ = poller._response_for("/status")
+    assert delivery_text.endswith("Sources · 1/1 healthy · 1 delivery failed")
+
+    store.begin_cycle(datetime(2026, 11, 17, 12, 6, tzinfo=UTC))
+    store.fail_cycle("OperationalError", completed_at=datetime(2026, 11, 17, 12, 7, tzinfo=UTC))
+    failure_text, _, _ = poller._response_for("/status")
+    assert "Last scan failed · just now · OperationalError" in failure_text
+
+
 def test_fresh_finds_are_clickable_and_escape_untrusted_copy(settings_factory) -> None:
     payloads: list[dict] = []
 

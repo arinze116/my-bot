@@ -17,6 +17,10 @@ Authoritative product direction: owner PRD dated 2026-11-17. Runtime is Python +
 | Pause, resume, event/domain mute | Implemented | Owner control and callback tests |
 | Add, list, and remove bookmarks | Implemented | Persistent store, command, callback, and alert-action tests |
 | Daily ongoing digest | Implemented | Once-per-WAT-day digest with 24-hour New/Change suppression |
+| Queued-alert control revalidation | Implemented | Due alerts re-check current event/source/domain mutes and filters |
+| Silent empty-source detection | Implemented | Explicit empty-result policy plus existing three-failure warning |
+| Truthful runtime status | Implemented | Persisted cycle outcome and source-health summary in `/status` |
+| SQLite backup and restore | Locally verified | Online snapshot, integrity check, guarded restore, and inactive timer template |
 | Crowding heuristic | Pending | No reliable cross-source field verified |
 | JSON/CSV export | Pending | v1.1 |
 | Codex hand-off action | Pending | v1.1; no outbound action without owner approval |
@@ -35,7 +39,12 @@ Authoritative product direction: owner PRD dated 2026-11-17. Runtime is Python +
 | AT6 broken source warning after streak | Passed | Source-health tests |
 | AT7 unresolved URL suppressed | Passed | URL verifier and aggregator tests |
 | AT8 recap-only X post rejected | Passed | Twitter filter tests |
+| AT9 mute/filter changes cancel queued delivery | Passed | Queued-alert control regression |
+| AT10 unexpected zero-result catalog degrades health | Passed | Empty-source policy tests |
+| AT11 backup round-trip preserves current and recovery databases | Passed | Backup, restore, CLI, and deployment tests |
 
 ## Remaining product limits
 
-Completeness across the public internet is not guaranteed. Scraped provider contracts can drift. Crowding is unknown where providers expose no applicant/popularity field. Host backup and restore remain unverified.
+Completeness across the public internet is not guaranteed. Scraped provider contracts can drift.
+Crowding is unknown where providers expose no applicant/popularity field. Backup and restore pass
+local tests, but the daily host timer is not installed and a production restore drill has not run.
