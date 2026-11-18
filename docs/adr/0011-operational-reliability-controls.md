@@ -54,6 +54,19 @@ state could produce an inconsistent snapshot.
 - The daily timer and host-local restore path are verified. Full host-volume-loss recovery remains
   unverified until snapshots are copied off host with a tested retention policy.
 
+## Deployment verification
+
+- PR #1 merged the reliability tranche as `b7630820fdbc558ecfe6e3209b54d2d7cc176bc3`.
+- PR #2 merged the snapshot-sidecar follow-up as
+  `070415edc5582f959b39d774605c54ccd2ba43f8`.
+- The controlled retry restored
+  `hackathon-radar-20261118T222134.923261Z.sqlite3` byte-for-byte and preserved a separate recovery
+  copy.
+- The fixed production unit created `hackathon-radar-20261118T223327.698213Z.sqlite3` with mode
+  `600`, passed integrity, and created no additional sidecars.
+- The worker completed its first cycle on the follow-up merge with 95 fetched items, zero source
+  errors, zero delivery failures, and `NRestarts=0`.
+
 ## Reversal trigger
 
 Replace the single-row status record with run history when operational analytics require more than

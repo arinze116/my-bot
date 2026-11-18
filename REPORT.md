@@ -22,7 +22,7 @@ parsing.
   publication, guarded restore, and automatic pre-restore recovery snapshots.
 - Added immutable snapshot verification, temporary-sidecar cleanup, and a second sidecar check that
   stops replacement if a writer appears during the recovery copy.
-- Added backup CLI tests and inactive daily systemd backup service/timer templates.
+- Added backup CLI tests and daily systemd backup service/timer templates.
 - Updated README, `SYSTEM.md`, `MODULES.md`, product status, ADR-0011, changelog, and RED/GREEN
   evidence.
 
@@ -49,6 +49,8 @@ parsing.
 - All requested repository changes and deterministic safeguards.
 - Additive SQLite initialization for existing databases.
 - PR #1 merged the reliability release as `b7630820fdbc558ecfe6e3209b54d2d7cc176bc3`.
+- PR #2 merged the deployment-discovered sidecar fix as
+  `070415edc5582f959b39d774605c54ccd2ba43f8`.
 - The daily backup timer is installed, enabled, and waiting for its next run.
 - A controlled retry restored a byte-identical snapshot and the worker completed a real cycle with
   `fetched=95`, `sent=0`, `source_errors=0`, and zero delivery failures.
@@ -79,16 +81,24 @@ parsing.
 
 - Initial release PR: `https://github.com/arinze116/my-bot/pull/1`.
 - Release merge: `b7630820fdbc558ecfe6e3209b54d2d7cc176bc3`.
+- Follow-up PR: `https://github.com/arinze116/my-bot/pull/2`.
+- Deployed follow-up merge: `070415edc5582f959b39d774605c54ccd2ba43f8`.
 - Successful restore source:
   `/home/ubuntu/my-bot/backups/hackathon-radar-20261118T222134.923261Z.sqlite3`.
 - Successful pre-restore recovery copy:
   `/home/ubuntu/my-bot/seen_hackathons-pre-restore-20261118T222144.472849Z.sqlite3`.
-- Manual unit snapshot:
-  `/home/ubuntu/my-bot/backups/hackathon-radar-20261118T222218.216032Z.sqlite3`.
-- Worker after the successful retry: PID `2592056`, `NRestarts=0`, persisted status `success` with
-  95 fetched items and no source or delivery failures.
-- Backup timer: enabled and waiting; next scheduled run was `2026-11-19 00:09:01 WAT`.
-- Backup service: `Result=success`, `ExecMainStatus=0`; the snapshot uses mode `600`.
+- Fixed-code unit snapshot:
+  `/home/ubuntu/my-bot/backups/hackathon-radar-20261118T223327.698213Z.sqlite3`.
+- The fixed-code backup unit added one verified snapshot and added no temporary or snapshot
+  sidecars. Its result was `success` with `ExecMainStatus=0`; the snapshot uses mode `600`.
+- Twenty orphan sidecars from the original implementation were verified unused and removed. All
+  databases, recovery copies, and snapshots remain intact.
+- Worker on the deployed follow-up: PID `2601626`, `NRestarts=0`, persisted status `success` with 95
+  fetched items and no source or delivery failures.
+- The first cycle on `070415e` completed successfully. Its only warning was the expected suppression
+  of one unresolved event URL; no error or traceback followed.
+- Backup timer: enabled and waiting; next scheduled run was `2026-11-19 00:14:36 WAT`.
+- Merged-revision gate: Ruff passed and pytest reported `102 passed` on `070415e`.
 
 ## Scorecard evidence
 
@@ -120,8 +130,8 @@ example: muting an event during quiet hours removes its queued alert; three unex
 
 ## Next step
 
-Merge and deploy the temporary-sidecar cleanup, rerun the real backup unit, and record the final
-deployment SHA.
+Define retention and copy verified snapshots off host, then run a recovery drill from that off-host
+copy.
 
 ---
 
