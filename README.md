@@ -106,8 +106,8 @@ Create a consistent snapshot while the worker is running:
 ```
 
 The command reads `DATABASE_PATH`, uses SQLite's online backup API, runs `PRAGMA integrity_check`,
-writes through a temporary file, and refuses to overwrite an existing snapshot. Snapshot files use
-mode `600` when created by the supplied systemd service.
+writes through a temporary file, removes temporary SQLite sidecars, and refuses to overwrite an
+existing snapshot. Snapshot files use mode `600` when created by the supplied systemd service.
 
 After explicit approval to change the host service schedule, install the daily timer templates:
 
@@ -118,15 +118,22 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now hackathon-radar-backup.timer
 ```
 
-Restore only while the worker is stopped. `--replace` creates a verified pre-restore recovery copy
-beside the database before the atomic replacement. The command refuses to continue while SQLite
-WAL or shared-memory sidecars exist.
+Restore only while the worker and any external restart watchdog are stopped. Confirm that the
+service stays inactive and that no process holds the database. `--replace` creates a verified
+pre-restore recovery copy beside the database before the atomic replacement. The command checks
+for SQLite WAL or shared-memory sidecars before and after that recovery copy, then refuses to
+replace the database if a writer appeared during the operation.
 
 ```bash
 sudo systemctl stop hackathon-radar
+systemctl is-active hackathon-radar
+sudo lsof seen_hackathons.db seen_hackathons.db-wal seen_hackathons.db-shm
 .venv/bin/python -m scripts.database_backup restore --backup backups/<snapshot>.sqlite3 --replace
 sudo systemctl start hackathon-radar
 ```
+
+If `deploy/hackathon-radar.cron` is installed, pause that watchdog for the maintenance window and
+restore it only after the first polling cycle succeeds.
 
 On the first successful read of each source, the default `BOOTSTRAP_MODE=baseline` archives current listings without sending them. This prevents a new deployment from flooding Telegram. To deliberately send all currently returned listings once:
 

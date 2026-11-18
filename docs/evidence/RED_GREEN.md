@@ -36,13 +36,23 @@
 - RED excerpts: `ModuleNotFoundError: No module named 'database_backup'`; the backup systemd unit did not exist.
 - GREEN behavior: online SQLite snapshots pass integrity checks and collision refusal; restore requires explicit replacement, preserves a recovery snapshot, and refuses active sidecars; the CLI and inactive daily timer contract pass.
 
+### R-BACKUP-1 — deployment sidecars and mid-restore writers
+
+- Production RED: the installed five-minute watchdog restarted the worker during the first restore
+  window. The concurrent cycle ended with `sqlite3.OperationalError: no such table: runtime_status`.
+- Test RED command: `.venv/bin/python -m pytest -q tests/test_database_backup.py::test_wal_backup_and_restore_leave_no_snapshot_sidecars`.
+- Test RED excerpt: the backup directory also contained `.tmp-shm` and `.tmp-wal` files.
+- GREEN behavior: closed snapshots use immutable integrity reads; tool-owned temporary sidecars are
+  removed; restore rechecks destination sidecars after the recovery copy; the host runbook pauses
+  external watchdogs until the recovered worker completes a real cycle.
+
 ### Current-revision GREEN
 
 - Focused safeguard command: thirteen queue, health, status, prize, source-policy, backup, CLI, and
   deployment tests.
 - Focused excerpt: `13 passed`.
 - Full command: `make ci`.
-- Full excerpt: Ruff `All checks passed!`; pytest `100 passed`.
+- Full excerpt: Ruff `All checks passed!`; pytest `102 passed`.
 
 The faults below were temporarily injected into production code, observed by the named test, and then removed. The full current suite is recorded in `REPORT.md`.
 

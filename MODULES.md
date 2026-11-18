@@ -66,11 +66,11 @@
 ## database backup and restore
 
 - **Owns:** consistent SQLite snapshot creation, integrity checks, atomic publication, guarded replacement, and pre-restore recovery copies.
-- **Promises:** backup can read a WAL database while the worker runs; an existing snapshot is never overwritten; restore requires explicit replacement and refuses WAL/SHM sidecars (R-BACKUP-1).
+- **Promises:** backup can read a WAL database while the worker runs; an existing snapshot is never overwritten; temporary snapshot sidecars are removed; restore requires explicit replacement and checks for WAL/SHM sidecars both before and after the recovery copy (R-BACKUP-1).
 - **Depends on:** Python's SQLite backup API and a writable destination on the same filesystem for atomic replacement.
-- **Fails how:** missing/corrupt files, name collisions, active sidecars, or failed integrity checks abort before the destination changes.
-- **Hard part:** a host restore still requires stopping the live service and verifying the original worker path after restart.
-- **Red tests:** backup consistency, collision refusal, recovery-copy restore, CLI execution, and systemd timer contract tests.
+- **Fails how:** missing/corrupt files, name collisions, active or newly created sidecars, or failed integrity checks abort before the destination changes.
+- **Hard part:** a host restore requires pausing external restart watchdogs, stopping the live service, and verifying the original worker path after restart.
+- **Red tests:** backup consistency, collision refusal, sidecar cleanup, mid-restore writer refusal, recovery-copy restore, CLI execution, and systemd timer contract tests.
 
 ## Telegram command center
 
