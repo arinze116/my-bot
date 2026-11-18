@@ -1,0 +1,13 @@
+[Unit]
+Description=Upload and restore-test the Hackathon Radar off-host backup
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/my-bot
+EnvironmentFile=/home/ubuntu/my-bot/.env
+UMask=0077
+ExecStart=/home/ubuntu/my-bot/.venv/bin/python -m scripts.offsite_backup --catalog /home/ubuntu/my-bot/offsite_backups.json

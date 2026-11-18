@@ -1,4 +1,4 @@
-.PHONY: setup lint test ci run-once smoke-sources brand-avatar
+.PHONY: setup lint test ci run-once smoke-sources offsite-backup brand-avatar
 
 PYTHON := .venv/bin/python
 PIP := .venv/bin/pip
@@ -23,6 +23,9 @@ run-once: setup
 
 smoke-sources: setup
 	$(PYTHON) -m scripts.check_sources
+
+offsite-backup: setup
+	$(PYTHON) -m scripts.offsite_backup
 
 brand-avatar: setup
 	$(PYTHON) -m scripts.render_brand_avatar

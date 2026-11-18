@@ -135,6 +135,38 @@ sudo systemctl start hackathon-radar
 If `deploy/hackathon-radar.cron` is installed, pause that watchdog for the maintenance window and
 restore it only after the first polling cycle succeeds.
 
+### Off-host backup and recovery
+
+The off-host job stores one latest-verified SQLite document in the configured owner Telegram chat.
+Each run creates a fresh online snapshot, uploads a silent candidate, downloads it from Telegram,
+restores it into an isolated temporary database, and compares SHA-256 hashes. Only then does it
+replace the stable backup message and remove the candidate.
+
+Telegram bot chats are cloud-stored rather than end-to-end encrypted. The SQLite archive contains
+event data and owner preferences, but no Telegram or X credentials; `.env` is never uploaded. The
+snapshot must stay below Telegram's verified 20 MB bot-download limit.
+
+Run one verified off-host cycle manually:
+
+```bash
+make offsite-backup
+```
+
+Install the daily 01:00 WAT timer after explicit approval to send backup documents externally:
+
+```bash
+sudo install -o root -g root -m 0644 deploy/hackathon-radar-offsite-backup.service /etc/systemd/system/hackathon-radar-offsite-backup.service
+sudo install -o root -g root -m 0644 deploy/hackathon-radar-offsite-backup.timer /etc/systemd/system/hackathon-radar-offsite-backup.timer
+sudo systemctl daemon-reload
+sudo systemctl enable --now hackathon-radar-offsite-backup.timer
+```
+
+`offsite_backups.json` is a mode-600 local catalog for the stable Telegram message, its file ID,
+timestamp, size, and SHA-256 digest. Telegram limits bot message deletion to 48 hours, so retention
+uses one stable message whose document is replaced only after the candidate passes recovery. If the
+host is lost, download that document from the private chat and restore it with the normal guarded
+restore command.
+
 On the first successful read of each source, the default `BOOTSTRAP_MODE=baseline` archives current listings without sending them. This prevents a new deployment from flooding Telegram. To deliberately send all currently returned listings once:
 
 ```bash
@@ -306,6 +338,7 @@ currently allow zero results because their filtered public surfaces can legitima
 - `docs/research-2026-11-16.md`: verified endpoint and hosting research.
 - `docs/adr/0001-python-worker-and-direct-http.md`: language and client decisions.
 - `docs/adr/0011-operational-reliability-controls.md`: queue, health, status, and backup decisions.
+- `docs/adr/0012-telegram-offsite-backup.md`: off-host retention and recovery-drill decisions.
 - `docs/evidence/RED_GREEN.md`: fault-injection evidence.
 
 ## License
